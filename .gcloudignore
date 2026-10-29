@@ -1,0 +1,32 @@
+# What `gcloud builds submit` uploads to Cloud Build.
+#
+# Without this file gcloud falls back to .gitignore, which excludes *.pt, so
+# the model weights would silently not be uploaded and the image would not
+# start. This file replaces .gitignore for uploads, so list everything to skip.
+.git
+.github
+.venv
+.pytest_cache
+.ruff_cache
+__pycache__/
+*.pyc
+data/
+runs/
+reports/
+notebooks/
+tests/
+docs/
+web/
+scripts/
+mlflow.db
+mlruns/
+*.md
+*.png
+requirements.txt
+requirements-dev.txt
+requirements-tracking.txt
+
+# Weights: send only the two files the image copies in.
+models/*
+!models/synthetic.pt
+!models/finetuned.pt
