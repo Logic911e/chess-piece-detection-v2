@@ -1,0 +1,12 @@
+# Lean, pinned dependencies for the inference service.
+# The training-oriented requirements.txt is untouched.
+#
+# torch and torchvision are not listed: the Dockerfile installs the CPU-only
+# builds (torch 2.15.0, torchvision 0.29.2) from the PyTorch CPU index, which
+# keeps the image far smaller than the default CUDA build. For a local venv,
+# `pip install torch==2.15.0 torchvision==0.29.2` works.
+ultralytics==8.4.191
+fastapi==0.162.0
+uvicorn==0.54.0
+python-multipart==0.0.32
+pillow==13.0.0
