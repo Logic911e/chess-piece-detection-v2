@@ -1,0 +1,24 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Only the new service code and its tests are linted. The original
+# course-project scripts in src/ are left as they were.
+include = [
+    "src/predict.py",
+    "src/app.py",
+    "src/schemas.py",
+    "tests/conftest.py",
+    "tests/test_predict.py",
+    "tests/test_api.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["predict", "app", "schemas"]
+
+[tool.pytest.ini_options]
+# The original script-style test is run with `python tests/...`, not pytest.
+testpaths = ["tests"]
+python_files = ["test_predict.py", "test_api.py"]
