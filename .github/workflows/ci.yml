@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+      # CPU-only torch first, so pip does not pull the multi-GB CUDA build
+      # when it resolves ultralytics.
+      - name: Install CPU PyTorch
+        run: pip install torch==2.15.0 torchvision==0.29.2 --index-url https://download.pytorch.org/whl/cpu
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check src tests
+      - name: Format check
+        run: ruff format --check src tests
+      # The weights are gitignored, so tests that need them skip here. The
+      # API validation tests run against a stub model.
+      - name: Test
+        run: pytest -q -rs
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # No weights in the repo: an empty models/ lets the build succeed.
+      # The image is not run or pushed.
+      - name: Build image
+        run: |
+          mkdir -p models
+          docker build -t chess-api:ci .

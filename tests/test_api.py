@@ -1,10 +1,15 @@
-"""API tests. TestClient runs the real app, including the startup model load."""
+"""API tests. TestClient runs the real app, including the startup hook.
+
+The main `client` swaps model loading for stubs, so these run without the
+gitignored weights. `real_client` at the bottom uses the real weights.
+"""
 
 from __future__ import annotations
 
 import io
 
 import pytest
+from conftest import EXPECTED_STUB_DETECTION, StubModel
 from fastapi.testclient import TestClient
 
 import app as app_module
@@ -12,8 +17,14 @@ import app as app_module
 
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app_module.app) as c:  # `with` triggers the lifespan startup
-        yield c
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(
+            app_module,
+            "load_models",
+            lambda _dir: {"synthetic": StubModel(), "finetuned": StubModel()},
+        )
+        with TestClient(app_module.app) as c:  # `with` triggers the startup hook
+            yield c
 
 
 def png_bytes(image) -> bytes:
@@ -39,7 +50,7 @@ def test_predict_ok(client, tiny_image, model):
     body = r.json()
     assert body["model"] == model
     assert (body["image_width"], body["image_height"]) == tiny_image.size
-    assert isinstance(body["detections"], list)
+    assert body["detections"] == [EXPECTED_STUB_DETECTION]
 
 
 def test_predict_defaults(client, tiny_image):
@@ -49,13 +60,11 @@ def test_predict_defaults(client, tiny_image):
 
 
 def test_wrong_content_type(client):
-    r = post(client, b"hello", content_type="text/plain")
-    assert r.status_code == 415
+    assert post(client, b"hello", content_type="text/plain").status_code == 415
 
 
 def test_oversize_upload(client):
-    r = post(client, b"0" * (app_module.MAX_UPLOAD_BYTES + 1))
-    assert r.status_code == 413
+    assert post(client, b"0" * (app_module.MAX_UPLOAD_BYTES + 1)).status_code == 413
 
 
 def test_corrupt_image(client):
@@ -71,3 +80,16 @@ def test_bad_query_params(client, tiny_image, params):
 
 def test_missing_file(client):
     assert client.post("/predict").status_code == 422
+
+
+@pytest.fixture()
+def real_client(real_models):  # skips when the weights are absent
+    with TestClient(app_module.app) as c:
+        yield c
+
+
+@pytest.mark.parametrize("model", ["synthetic", "finetuned"])
+def test_real_weights_end_to_end(real_client, tiny_image, model):
+    r = post(real_client, png_bytes(tiny_image), model=model, conf=0.1)
+    assert r.status_code == 200
+    assert r.json()["model"] == model

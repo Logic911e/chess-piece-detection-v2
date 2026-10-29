@@ -1,5 +1,9 @@
-"""Shared fixtures. The models are loaded once per test session because
-loading both takes a few seconds."""
+"""Shared fixtures.
+
+Most tests use a stub model, so they run anywhere (including CI, where the
+gitignored weights are absent). Tests that need the real weights use the
+`real_models` fixture, which skips when the files are missing.
+"""
 
 from __future__ import annotations
 
@@ -12,11 +16,55 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from predict import MODEL_FILES, load_models  # noqa: E402
+
+
+class _Tensor:
+    """Just enough of a torch tensor: the code under test only calls .tolist()."""
+
+    def __init__(self, values):
+        self._values = values
+
+    def tolist(self):
+        return self._values
+
+
+class _Boxes:
+    xyxy = _Tensor([[10.04, 20.06, 110.0, 220.0]])
+    conf = _Tensor([0.91234])
+    cls = _Tensor([4.0])
+
+
+class _Result:
+    boxes = _Boxes()
+
+
+class StubModel:
+    """Stands in for ultralytics.YOLO and always finds one white queen."""
+
+    names = {4: "white-queen"}
+
+    def predict(self, image, **kwargs):
+        return [_Result()]
+
+
+EXPECTED_STUB_DETECTION = {
+    "class_name": "white-queen",
+    "confidence": 0.9123,
+    "bbox": [10.0, 20.1, 110.0, 220.0],
+}
+
+
+@pytest.fixture()
+def stub_models() -> dict:
+    return {name: StubModel() for name in MODEL_FILES}
+
 
 @pytest.fixture(scope="session")
-def models():
-    from predict import load_models
-
+def real_models():
+    missing = [f for f in MODEL_FILES.values() if not (ROOT / "models" / f).is_file()]
+    if missing:
+        pytest.skip(f"weights not present: {', '.join(missing)}")
     return load_models(ROOT / "models")
 
 
