@@ -22,3 +22,8 @@ venv/
 
 # OS
 .DS_Store
+
+.venv/
+models/
+__pycache__/
+*.pt
