@@ -27,3 +27,7 @@ venv/
 models/
 __pycache__/
 *.pt
+
+# MLflow local store
+mlflow.db
+mlruns/

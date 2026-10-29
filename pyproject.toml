@@ -10,6 +10,7 @@ include = [
     "tests/conftest.py",
     "tests/test_predict.py",
     "tests/test_api.py",
+    "scripts/log_runs_to_mlflow.py",
 ]
 
 [tool.ruff.lint]
