@@ -1,0 +1,25 @@
+# Keep the build context small. The image only needs requirements-api.txt,
+# src/ and the two stripped weight files.
+.git
+.github
+.venv
+.pytest_cache
+.ruff_cache
+__pycache__
+*.pyc
+data
+runs
+reports
+notebooks
+tests
+docs
+web
+*.md
+*.png
+requirements.txt
+requirements-dev.txt
+
+# Weights: exclude everything, then allow only the two the service loads.
+models/*
+!models/synthetic.pt
+!models/finetuned.pt
