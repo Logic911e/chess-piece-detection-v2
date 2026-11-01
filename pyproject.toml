@@ -23,3 +23,17 @@ known-first-party = ["predict", "app", "schemas"]
 # The original script-style test is run with `python tests/...`, not pytest.
 testpaths = ["tests"]
 python_files = ["test_predict.py", "test_api.py"]
+
+[tool.mypy]
+python_version = "3.12"
+# ultralytics, mlflow and pandas ship little or no type information.
+ignore_missing_imports = true
+files = [
+    "src/predict.py",
+    "src/app.py",
+    "src/schemas.py",
+    "tests/conftest.py",
+    "tests/test_predict.py",
+    "tests/test_api.py",
+    "scripts/log_runs_to_mlflow.py",
+]

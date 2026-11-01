@@ -140,12 +140,12 @@ src/*.py (others)     the original course-project training and evaluation code
 ## Testing
 
 ```bash
-ruff check src tests scripts && ruff format --check src tests scripts
+ruff check src tests scripts && ruff format --check src tests scripts && mypy
 pytest
 ```
 
 Optional but recommended: `pip install pre-commit && pre-commit install` runs the same
-ruff checks, plus file hygiene and a block on files over 500 KB (so weights cannot be
+ruff and mypy checks, plus file hygiene and a block on files over 500 KB (so weights cannot be
 committed by accident), before every commit. Run it on everything with
 `pre-commit run --all-files`.
 
