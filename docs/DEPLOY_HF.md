@@ -1,5 +1,12 @@
 # Deploying to a private Hugging Face Space
 
+> **Correction:** the Hugging Face sign-up page showed Docker Spaces as a paid
+> option (it required a PRO plan), and only Static Spaces were free. The free
+> CPU tier described below was taken from older documentation, so treat this
+> guide as applying only if you choose to pay. The free route is
+> [`DEPLOY.md`](DEPLOY.md) (Cloud Run on the trial credit). A free Static
+> Space can still host `web/index.html` once an API is public.
+
 You run every step below yourself. Nothing here has been run against Hugging
 Face. What was checked locally: `scripts/prepare_space.sh` builds the upload
 folder, the Docker image builds from that folder, and the container answers
@@ -20,7 +27,7 @@ Face docs at the time of writing and can change.
 | Decision | Choice | Why |
 |---|---|---|
 | Visibility | **Private** | The fine-tuned weights come from ChessReD (CC BY-NC-SA 4.0) and the synthetic weights come from a dataset whose licence is still TBD. A public Space would distribute both. |
-| Cost | Free CPU Basic | No billing account needed. |
+| Cost | Needs a paid Hugging Face plan for Docker Spaces (price not checked) | Seen on the sign-up page; the free CPU tier no longer covers Docker. |
 
 A private Space means only you can open it. Calls to the API need a Hugging
 Face access token with read permission, sent as `Authorization: Bearer hf_...`.
@@ -33,7 +40,7 @@ demo page or commit one anywhere.
 On huggingface.co: **New Space**, then:
 - Name: for example `chess-detection`
 - SDK: **Docker**, template **Blank**
-- Hardware: **CPU basic (free)**
+- Hardware: **CPU basic**
 - Visibility: **Private**
 
 ## 2. Build the upload folder

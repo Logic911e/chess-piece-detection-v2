@@ -160,9 +160,10 @@ sweep, read from the checkpoints and the report CSVs.
 
 ## Deployment
 
-A private Hugging Face Space (free tier) is the first target; see
-[`docs/DEPLOY_HF.md`](docs/DEPLOY_HF.md). It is not deployed yet.
-The Cloud Run option below stays as the alternative.
+Docker Spaces on Hugging Face need a paid plan, so the planned route is Google
+Cloud Run on the free trial credit (below). A Hugging Face guide for a private
+Space is in [`docs/DEPLOY_HF.md`](docs/DEPLOY_HF.md) for anyone who pays for it.
+Nothing is deployed yet.
 
 Cloud Run alternative: written, not yet deployed. Exact commands, a budget alert and a
 teardown section are in [`docs/DEPLOY.md`](docs/DEPLOY.md); none of them have been run.
