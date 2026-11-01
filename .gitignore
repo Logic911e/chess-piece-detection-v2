@@ -31,3 +31,6 @@ __pycache__/
 # MLflow local store
 mlflow.db
 mlruns/
+
+# Staging folder for the Hugging Face Space upload
+build/

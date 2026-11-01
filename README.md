@@ -160,7 +160,11 @@ sweep, read from the checkpoints and the report CSVs.
 
 ## Deployment
 
-Written for Google Cloud Run, not yet deployed. Exact commands, a budget alert and a
+A private Hugging Face Space (free tier) is the first target; see
+[`docs/DEPLOY_HF.md`](docs/DEPLOY_HF.md). It is not deployed yet.
+The Cloud Run option below stays as the alternative.
+
+Cloud Run alternative: written, not yet deployed. Exact commands, a budget alert and a
 teardown section are in [`docs/DEPLOY.md`](docs/DEPLOY.md); none of them have been run.
 Note that an image built on an Apple-silicon Mac is arm64, and Cloud Run needs
 amd64, so it must be built for that platform.
