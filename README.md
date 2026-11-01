@@ -144,6 +144,11 @@ ruff check src tests scripts && ruff format --check src tests scripts
 pytest
 ```
 
+Optional but recommended: `pip install pre-commit && pre-commit install` runs the same
+ruff checks, plus file hygiene and a block on files over 500 KB (so weights cannot be
+committed by accident), before every commit. Run it on everything with
+`pre-commit run --all-files`.
+
 The API tests use a stub model, so they pass anywhere. Tests that load the real
 weights are skipped when the weights are absent, which is what happens in CI. CI
 builds the Docker image without weights; that image builds but will not start.
