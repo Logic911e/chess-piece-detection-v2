@@ -22,7 +22,7 @@ request arrives and scales to zero when idle.
 Install the CLI and sign in:
 
 ```bash
-brew install --cask google-cloud-sdk
+brew install --cask gcloud-cli
 gcloud auth login
 ```
 
