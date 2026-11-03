@@ -4,8 +4,11 @@ A YOLOv8 service that finds and labels chess pieces in a photo, packaged as a
 tested Docker container with a FastAPI interface, built to show the gap between
 a model trained on synthetic images and the same model fine-tuned on real ones.
 
-> **Screenshot or GIF of the demo: TBD**
->
+![Demo page comparing the synthetic and fine-tuned models on one real photograph](docs/demo.jpg)
+
+*The demo page running both models on one photograph from the real test split,
+at the default confidence of 0.25. This is one example, not an accuracy measure.*
+
 > **Live demo: TBD** (not deployed yet). To try the demo page on your own machine, see
 > Demo page below.
 
