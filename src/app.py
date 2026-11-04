@@ -1,4 +1,6 @@
-"""FastAPI service: GET /health, POST /predict and POST /position.
+"""FastAPI service: GET /health, POST /predict, POST /position and POST /analyse.
+
+The pages in web/ are served at /app/ so a page and its API share one address.
 
 Run locally:  uvicorn app:app --app-dir src --port 8080
 """
@@ -12,18 +14,29 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
+import chess.engine
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps
 
+from analysis import analyse, fen_problems, find_engine, placement_problems
 from position import detections_to_position, fen_placement, parse_corners
 from predict import load_models, predict
-from schemas import HealthResponse, PositionResponse, PredictResponse
+from schemas import (
+    AnalyseRequest,
+    AnalyseResponse,
+    HealthResponse,
+    PositionResponse,
+    PredictResponse,
+)
 
 log = logging.getLogger("chess-api")
 
-MODELS_DIR = Path(os.environ.get("MODELS_DIR", Path(__file__).resolve().parent.parent / "models"))
+ROOT = Path(__file__).resolve().parent.parent
+MODELS_DIR = Path(os.environ.get("MODELS_DIR", ROOT / "models"))
+WEB_DIR = Path(os.environ.get("WEB_DIR", ROOT / "web"))
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 ALLOWED_TYPES = {"image/jpeg", "image/png"}
 # Only the demo page's origin may call the API from a browser. Comma-separated.
@@ -117,13 +130,47 @@ def position_endpoint(
     image = read_upload(file)
     result = predict(request.app.state.models, model, image, conf)
     squares = detections_to_position(result["detections"], board_corners, anchor_y)
+    placement = fen_placement(squares)
     return {
         "model": model,
         "image_width": result["image_width"],
         "image_height": result["image_height"],
         "squares": squares,
-        "fen_placement": fen_placement(squares),
+        "fen_placement": placement,
         "pieces": len(squares),
+        "warnings": placement_problems(placement),
         "ignored_detections": len(result["detections"]) - len(squares),
         "inference_ms": result["inference_ms"],
     }
+
+
+@app.post("/analyse", response_model=AnalyseResponse)
+def analyse_endpoint(body: AnalyseRequest):
+    engine_path = find_engine()
+    if engine_path is None:
+        raise HTTPException(
+            503,
+            "No chess engine is set up on this server. Set STOCKFISH_PATH or install Stockfish.",
+        )
+    try:
+        problems = fen_problems(body.fen)
+    except ValueError:
+        raise HTTPException(422, "That is not a valid FEN") from None
+    if problems:
+        raise HTTPException(422, "This position cannot be analysed. " + " ".join(problems))
+    try:
+        return analyse(engine_path, body.fen, body.seconds)
+    except (chess.engine.EngineError, chess.engine.EngineTerminatedError, OSError):
+        log.exception("Engine failed")
+        raise HTTPException(502, "The chess engine failed to answer") from None
+
+
+# Serve the pages from the API so a page and its API share one address. That
+# avoids cross-site calls (and CORS) and lets one tunnel or one Cloud Run URL
+# carry everything. Skipped if the folder is absent.
+if WEB_DIR.is_dir():
+    app.mount("/app", StaticFiles(directory=WEB_DIR, html=True), name="web")
+
+    @app.get("/", include_in_schema=False)
+    def root():
+        return RedirectResponse("/app/")

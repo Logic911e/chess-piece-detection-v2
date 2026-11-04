@@ -105,8 +105,15 @@ straightened, which makes it easy to check the squares against the diagram.
 
 ![The position page: corners marked on the photo and the resulting top-down board](docs/position-demo.jpg)
 
-Served the same way as the other page (`python -m http.server 8000 --directory web`,
-then open http://localhost:8000/position.html).
+The API also serves both pages itself, so once it is running you can open
+http://localhost:8080/app/position.html and the page uses the same address for the API,
+with no CORS setup. Positions that cannot occur in a game (a missing king, nine pawns)
+are flagged with a warning, which usually means a corner or piece was misread.
+
+**Engine.** "Run Stockfish" on the page calls `POST /analyse`, which needs a Stockfish
+binary on the machine running the API (`brew install stockfish`, or set `STOCKFISH_PATH`).
+Without one the endpoint returns 503 and the page says so; "Analyse on Lichess" still
+works. The Docker image does not contain an engine.
 
 How well it works, from `docs/POSITION.md`: with the annotated corners, the fine-tuned
 model gets the whole position exactly right in 96.73% of the 306 test photographs
@@ -123,6 +130,7 @@ Interactive docs are at `/docs` once the server is running.
 | `GET /health` | `{"status": "ok", "models": ["synthetic", "finetuned"]}` |
 | `POST /predict` | Upload a JPEG or PNG (up to 5 MB). Query: `model` is `synthetic` or `finetuned` (default `finetuned`); `conf` is 0 to 1 (default 0.25) |
 | `POST /position` | Same upload plus a `corners` form field (JSON, pixels of the uploaded image: `bottom_left` is a1, `bottom_right` h1, `top_right` h8, `top_left` a8). Query: `model`, `conf` (default 0.5), `anchor_y` (default 0.9). Returns the squares and the FEN piece-placement field |
+| `POST /analyse` | JSON `{"fen": "...", "seconds": 1}`. Runs Stockfish and returns the evaluation (White's view), best move and main line. 503 if no engine is installed, 422 if the position is impossible |
 
 ```bash
 curl -X POST "http://localhost:8080/predict?model=finetuned&conf=0.25" \
@@ -147,6 +155,7 @@ src/predict.py        load both models once, run inference, return plain dicts
 src/app.py            FastAPI app: /health and /predict, upload validation, CORS
 src/schemas.py        response models
 src/position.py       board corners to squares and FEN (homography)
+src/analysis.py       legality checks and Stockfish analysis (python-chess)
 web/index.html        static page: compare the two models on a photo
 web/position.html     static page: photo to position (corners, diagram, FEN)
 tests/                pytest tests (stub model, so they run without weights)

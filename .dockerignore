@@ -1,5 +1,5 @@
 # Keep the build context small. The image only needs requirements-api.txt,
-# src/ and the two stripped weight files.
+# src/, web/ and the two stripped weight files.
 .git
 .github
 .venv
@@ -13,7 +13,6 @@ reports
 notebooks
 tests
 docs
-web
 *.md
 *.png
 requirements.txt

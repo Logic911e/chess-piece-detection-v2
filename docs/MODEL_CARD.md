@@ -151,6 +151,11 @@ These need a decision before anything is made public.
   settled in law**, and this card is not legal advice. The cautious reading is
   that the fine-tuned weights must follow CC BY-NC-SA terms: non-commercial,
   with attribution, and shared under the same licence if shared at all.
+- **python-chess and Stockfish are GPL-3.0.** The service imports python-chess
+  (GPL-3.0 or later) for legality checks and calls a separately installed Stockfish
+  binary (GPL-3.0) for analysis. Stockfish is not part of this repository or the
+  Docker image. GPL and AGPL code can be combined, but check the combined terms
+  before distributing the service.
 - This is a non-commercial portfolio project.
 
 ## Citation and credit

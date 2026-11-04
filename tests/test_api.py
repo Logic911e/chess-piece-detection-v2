@@ -186,3 +186,73 @@ def test_exif_rotation_is_applied(client, tiny_image):
     assert r.status_code == 200
     width, height = tiny_image.size
     assert (r.json()["image_width"], r.json()["image_height"]) == (height, width)
+
+
+# --- warnings, /analyse and the served pages --------------------------------
+
+
+def test_position_warns_when_the_placement_is_impossible(client, tiny_image):
+    # The stub finds one white queen: no kings, which a real board always has.
+    body = post_position(client, png_bytes(tiny_image), conf=0.1).json()
+    assert "White has no king." in body["warnings"]
+    assert "Black has no king." in body["warnings"]
+
+
+CANNED_ANALYSIS = {
+    "engine": "Stub engine",
+    "fen": "4k3/8/8/8/8/8/8/4K2R w - - 0 1",
+    "score_kind": "cp",
+    "score_value": 500,
+    "score_text": "+5.00",
+    "best_move_uci": "h1h8",
+    "best_move_san": "Rh8+",
+    "line": "1. Rh8+",
+    "depth": 12,
+}
+
+
+def post_analyse(client, fen: str, **extra):
+    return client.post("/analyse", json={"fen": fen, **extra})
+
+
+def test_analyse_ok(client, monkeypatch):
+    monkeypatch.setattr(app_module, "find_engine", lambda: "/fake/engine")
+    monkeypatch.setattr(app_module, "analyse", lambda path, fen, seconds: CANNED_ANALYSIS)
+    r = post_analyse(client, "4k3/8/8/8/8/8/8/4K2R w - - 0 1", seconds=0.5)
+    assert r.status_code == 200
+    assert r.json() == CANNED_ANALYSIS
+
+
+def test_analyse_without_an_engine_is_503(client, monkeypatch):
+    monkeypatch.setattr(app_module, "find_engine", lambda: None)
+    r = post_analyse(client, "4k3/8/8/8/8/8/8/4K2R w - - 0 1")
+    assert r.status_code == 503
+    assert "engine" in r.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "fen, expected",
+    [
+        ("not a fen", "not a valid FEN"),
+        ("8/8/8/8/8/8/8/8 w - - 0 1", "cannot be analysed"),
+        ("4k3/8/8/8/8/8/8/4RK2 w - - 0 1", "cannot be analysed"),
+    ],
+)
+def test_analyse_rejects_bad_positions(client, monkeypatch, fen, expected):
+    monkeypatch.setattr(app_module, "find_engine", lambda: "/fake/engine")
+    r = post_analyse(client, fen)
+    assert r.status_code == 422
+    assert expected in r.json()["detail"]
+
+
+def test_analyse_rejects_out_of_range_time(client):
+    assert post_analyse(client, "4k3/8/8/8/8/8/8/4K2R w - - 0 1", seconds=60).status_code == 422
+
+
+def test_pages_are_served_by_the_api(client):
+    r = client.get("/app/position.html")
+    assert r.status_code == 200
+    assert "Board to position" in r.text
+    redirect = client.get("/", follow_redirects=False)
+    assert redirect.status_code in (301, 302, 307)
+    assert redirect.headers["location"] == "/app/"

@@ -40,8 +40,30 @@ class PositionResponse(BaseModel):
         examples=["8/8/8/4p3/4P3/8/8/8"],
     )
     pieces: int = Field(description="Number of pieces placed on the board")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Reasons the placement cannot be a real position, e.g. a missing king. "
+        "Usually a sign the photo or corners were misread.",
+    )
     ignored_detections: int = Field(
         description="Detections not placed: outside the corners, or beaten by a more "
         "confident detection on the same square"
     )
     inference_ms: float
+
+
+class AnalyseRequest(BaseModel):
+    fen: str = Field(min_length=1, max_length=120, examples=["8/8/8/4p3/4P3/8/8/4K2k w - - 0 1"])
+    seconds: float = Field(default=1.0, ge=0.1, le=5.0, description="How long the engine thinks")
+
+
+class AnalyseResponse(BaseModel):
+    engine: str
+    fen: str
+    score_kind: str = Field(description="'cp' for centipawns or 'mate'")
+    score_value: int = Field(description="From White's point of view")
+    score_text: str = Field(examples=["+0.35", "#-3"])
+    best_move_uci: str | None
+    best_move_san: str | None
+    line: str = Field(description="The engine's main line, in algebraic notation")
+    depth: int

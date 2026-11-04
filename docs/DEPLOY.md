@@ -128,6 +128,14 @@ curl "$URL/health"
 curl -X POST "$URL/predict?model=finetuned" -F "file=@board.jpg;type=image/jpeg"
 ```
 
+### The pages and the engine
+
+The image also serves the demo pages at `$URL/app/`, which call the API at the same
+address, so no `CORS_ORIGINS` setting is needed for them. `POST /analyse` returns 503
+on Cloud Run because the image has no Stockfish. Adding one means installing it in the
+Dockerfile, which adds roughly 100 MB to the image (the Homebrew build is 99.9 MB
+installed) and uses CPU that inference also needs.
+
 ### Cold starts
 
 With zero minimum instances, the first request after idle time waits while the

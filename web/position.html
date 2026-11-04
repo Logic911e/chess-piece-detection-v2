@@ -101,6 +101,18 @@
   .side label { display: inline-flex; gap: 6px; align-items: center; min-height: 36px; }
   .actions { display: flex; gap: 10px; flex-wrap: wrap; }
   .toggle { margin-top: 12px; }
+  .warnings { margin: 12px 0 0; padding: 10px 12px; border-radius: 4px; background: var(--warn-bg);
+              color: var(--warn-ink); font-size: .92rem; max-width: 52ch; }
+  .warnings p { margin: 0 0 4px; }
+  .warnings ul { margin: 0; padding-left: 1.1em; }
+  .engine { margin-top: 22px; max-width: 520px; }
+  .engine .out { margin: 12px 0 0; min-height: 1.5em; }
+  .engine .score { font: 600 1.9rem/1.1 var(--serif); }
+  .engine .score small { font: 400 .85rem var(--sans); color: var(--muted); margin-left: 8px; }
+  .engine .move { margin: 6px 0 0; }
+  .engine .line { margin: 4px 0 0; color: var(--muted); font-size: .92rem; overflow-wrap: anywhere; }
+  .engine .err { color: var(--danger); }
+  @media (prefers-color-scheme: dark) { .engine .err { color: #f4b4ae; } }
 
   .notice { margin-top: 14px; padding: 10px 12px; border-radius: 4px; display: none; max-width: 62ch; }
   .notice.warn { display: block; background: var(--warn-bg); color: var(--warn-ink); }
@@ -179,6 +191,7 @@
         </div>
         <button class="quiet toggle" id="viewToggle" type="button" aria-pressed="false">Show straightened photo</button>
         <p class="summary" id="summary"></p>
+        <div class="warnings" id="warnings" hidden></div>
         <div class="fen">
           <fieldset class="side">
             <legend>Side to move</legend>
@@ -191,6 +204,10 @@
             <a class="primary" id="lichess" href="#" target="_blank" rel="noopener noreferrer">Analyse on Lichess</a>
             <button class="quiet" id="adjust" type="button">Adjust corners</button>
           </div>
+        </div>
+        <div class="engine">
+          <button class="quiet" id="runEngine" type="button">Run Stockfish</button>
+          <div class="out" id="engineOut" role="status" aria-live="polite"></div>
         </div>
       </div>
     </section>
@@ -232,7 +249,7 @@ const els = {
   loupe: $("loupe"), loupeCanvas: $("loupeCanvas"), read: $("read"), rotate: $("rotate"),
   reset: $("reset"), another: $("another"), placeholder: $("placeholder"), result: $("result"),
   board: $("board"), flat: $("flat"), diagram: $("diagram"), viewToggle: $("viewToggle"),
-  summary: $("summary"), fen: $("fen"), copy: $("copy"), lichess: $("lichess"), adjust: $("adjust"),
+  summary: $("summary"), warnings: $("warnings"), runEngine: $("runEngine"), engineOut: $("engineOut"), fen: $("fen"), copy: $("copy"), lichess: $("lichess"), adjust: $("adjust"),
   steps: { photo: $("step-photo"), corners: $("step-corners"), position: $("step-position") },
 };
 
@@ -244,7 +261,9 @@ const state = {
   stage: "photo", reached: 0, flight: 0,
 };
 
-els.api.value = new URLSearchParams(location.search).get("api") || "http://localhost:8080";
+// Served by the API itself (at /app/), the page and the API share one address.
+const servedByApi = location.pathname.startsWith("/app/");
+els.api.value = new URLSearchParams(location.search).get("api") || (servedByApi ? location.origin : "http://localhost:8080");
 const apiBase = () => els.api.value.trim().replace(/\/+$/, "");
 const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -543,6 +562,45 @@ async function readPosition() {
 els.read.addEventListener("click", readPosition);
 els.adjust.addEventListener("click", () => goTo("corners"));
 
+async function runEngine() {
+  els.runEngine.disabled = true;
+  els.engineOut.replaceChildren();
+  const say = (text, cls) => { const p = document.createElement("p"); p.textContent = text; if (cls) p.className = cls; els.engineOut.append(p); };
+  say("Thinking");
+  try {
+    const r = await fetch(`${apiBase()}/analyse`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fen: els.fen.value, seconds: 1 }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    if (!r.ok) {
+      let detail = "HTTP " + r.status;
+      try { const j = await r.json(); if (typeof j.detail === "string") detail = j.detail; } catch (_) {}
+      throw new Error(detail);
+    }
+    const a = await r.json();
+    els.engineOut.replaceChildren();
+    const score = document.createElement("div");
+    score.className = "score";
+    score.textContent = a.score_text;
+    const small = document.createElement("small");
+    small.textContent = a.score_kind === "mate" ? "mate, from White's side" : "for White, in pawns";
+    score.append(" ", small);
+    const move = document.createElement("p");
+    move.className = "move";
+    move.textContent = a.best_move_san ? `Best move: ${a.best_move_san}` : "No legal moves.";
+    const line = document.createElement("p");
+    line.className = "line";
+    line.textContent = `${a.line} (${a.engine}, depth ${a.depth})`;
+    els.engineOut.append(score, move, line);
+  } catch (e) {
+    els.engineOut.replaceChildren();
+    say(e instanceof TypeError ? "Could not reach the API." : e.message, "err");
+  } finally {
+    els.runEngine.disabled = false;
+  }
+}
+els.runEngine.addEventListener("click", runEngine);
+
 /* ---------- result: diagram, FEN, flattening ---------- */
 
 function buildDiagram(squares) {
@@ -590,7 +648,7 @@ function updateFen() {
   els.fen.value = fen;
   els.lichess.href = "https://lichess.org/analysis/" + fen.replaceAll(" ", "_");
 }
-document.querySelectorAll('input[name="turn"]').forEach((r) => r.addEventListener("change", updateFen));
+document.querySelectorAll('input[name="turn"]').forEach((r) => r.addEventListener("change", () => { updateFen(); els.engineOut.replaceChildren(); }));
 els.fen.addEventListener("focus", () => els.fen.select());
 els.copy.addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(els.fen.value); els.copy.textContent = "Copied"; }
@@ -663,6 +721,16 @@ function showResult(data, pts) {
   const bits = [`${data.pieces} ${data.pieces === 1 ? "piece" : "pieces"} placed`];
   if (data.ignored_detections) bits.push(`${data.ignored_detections} detected but left out (outside the corners, or two on one square)`);
   els.summary.textContent = bits.join(", ") + ".";
+  els.engineOut.replaceChildren();
+  els.warnings.replaceChildren();
+  els.warnings.hidden = !data.warnings.length;
+  if (data.warnings.length) {
+    const lead = document.createElement("p");
+    lead.textContent = "This is not a position that can occur in a game, so something was probably misread. Check that the corners sit on the board's corners.";
+    const list = document.createElement("ul");
+    data.warnings.forEach((w) => { const li = document.createElement("li"); li.textContent = w; list.append(li); });
+    els.warnings.append(lead, list);
+  }
   if (data.pieces === 0) notice("warn", "No pieces were found inside the corners. Check that the corners sit on the board and try again.");
   goTo("position");
   flatten(pts);

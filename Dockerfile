@@ -21,6 +21,8 @@ RUN pip install -r requirements-api.txt \
     && pip install opencv-python-headless==5.0.0.93
 
 COPY src/ ./src/
+# The demo pages, served by the API at /app/.
+COPY web/ ./web/
 # .dockerignore lets only synthetic.pt and finetuned.pt through from models/.
 # The weights are gitignored, so this only works when building from a checkout
 # that has them (locally or with Cloud Build). CI creates an empty models/ and

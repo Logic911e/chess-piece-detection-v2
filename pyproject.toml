@@ -8,10 +8,12 @@ include = [
     "src/app.py",
     "src/schemas.py",
     "src/position.py",
+    "src/analysis.py",
     "tests/conftest.py",
     "tests/test_predict.py",
     "tests/test_api.py",
     "tests/test_position.py",
+    "tests/test_analysis.py",
     "scripts/log_runs_to_mlflow.py",
     "scripts/eval_position.py",
     "scripts/eval_corner_noise.py",
@@ -21,12 +23,12 @@ include = [
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["predict", "app", "schemas", "position"]
+known-first-party = ["predict", "app", "schemas", "position", "analysis"]
 
 [tool.pytest.ini_options]
 # The original script-style test is run with `python tests/...`, not pytest.
 testpaths = ["tests"]
-python_files = ["test_predict.py", "test_api.py", "test_position.py"]
+python_files = ["test_predict.py", "test_api.py", "test_position.py", "test_analysis.py"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -37,10 +39,12 @@ files = [
     "src/app.py",
     "src/schemas.py",
     "src/position.py",
+    "src/analysis.py",
     "tests/conftest.py",
     "tests/test_predict.py",
     "tests/test_api.py",
     "tests/test_position.py",
+    "tests/test_analysis.py",
     "scripts/log_runs_to_mlflow.py",
     "scripts/eval_position.py",
     "scripts/eval_corner_noise.py",
