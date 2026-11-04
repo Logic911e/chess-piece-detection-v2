@@ -33,8 +33,9 @@ white-queen, white-king, then the same six for black.
 
 - **Commercial use.** The fine-tuned weights are derived from a non-commercial
   dataset (see Licence notes).
-- **Recovering the game state.** The models detect and label pieces. They do not
-  find the board, map pieces to squares, or produce a FEN string.
+- **Recovering the game state automatically.** The models detect and label pieces.
+  They do not find the board. Given the four corners, `src/position.py` maps pieces
+  to squares; see `docs/POSITION.md` for how well that works.
 - **Other chess sets, boards or camera setups.** Not tested. The synthetic model
   in particular does not transfer (see Metrics).
 - Any safety-relevant or high-stakes decision.

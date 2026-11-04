@@ -179,7 +179,9 @@ amd64, so it must be built for that platform.
   and each handset photographed one game, so camera and game cannot be separated.
 - **The synthetic model is under-trained.** It ran 8 of 50 planned epochs, so the
   79.8% drop may be a little overstated.
-- **Detection only.** It does not find the board or recover the position (FEN).
+- **The API only detects.** Recovering the position from corners is a tested module
+  and a first evaluation (see [`docs/POSITION.md`](docs/POSITION.md)), but is not
+  in the API or demo page yet, and the board corners are not found automatically.
 - **Untested conditions.** Lighting, angle and chess sets outside ChessReD have
   not been tested.
 - **Fine-tuning points from 100 photographs up are single runs.**
