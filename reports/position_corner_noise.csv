@@ -1,0 +1,7 @@
+model,noise_percent_of_board,seeds,piece_f1,exact_position,within_one_error,median_errors
+finetuned,0,1,0.9984,0.9673,0.9935,0.0
+finetuned,0.5,5,0.9984,0.9673,0.9935,0.0
+finetuned,1,5,0.9983,0.9654,0.9915,0.0
+finetuned,2,5,0.9833,0.8516,0.8987,0.0
+finetuned,3,5,0.9216,0.5954,0.6575,0.0
+finetuned,5,5,0.7321,0.1921,0.2274,6.2
