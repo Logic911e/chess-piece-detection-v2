@@ -110,7 +110,7 @@ command. The Space rebuilds.
 
 ## Before making it public
 
-1. Confirm the licence of the rendered dataset on its OSF page.
+1. The rendered dataset is CC BY 4.0 (checked on the OSF record), so the synthetic model is the easier one to share.
 2. Decide what to do about the ChessReD weights (CC BY-NC-SA 4.0). Options are
    to ship only the synthetic model, or to ask the dataset authors.
 3. Update `docs/MODEL_CARD.md` and the README credits to match.

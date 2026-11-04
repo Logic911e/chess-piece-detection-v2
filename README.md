@@ -189,17 +189,18 @@ amd64, so it must be built for that platform.
 
 ## Credits and licences
 
-- Rendered images: chesscog by Wölflein and Arandjelović
-  ([OSF](https://doi.org/10.17605/OSF.IO/XF3KA)). Licence of the data: **TBD**,
-  to confirm before publishing the synthetic weights.
+- Rendered images: Wölflein and Arandjelović, chesscog
+  ([OSF](https://doi.org/10.17605/OSF.IO/XF3KA)), **CC BY 4.0** (read from the OSF
+  record). Used to train the synthetic model, with attribution.
 - Real photographs: ChessReD by Masouris and van Gemert, VISAPP 2024
   ([4TU.ResearchData](https://doi.org/10.4121/99b5c721-280b-450b-b058-b2900b69a90f.v2)),
   **CC BY-NC-SA 4.0**. The fine-tuned weights are derived from it, so this project
   is non-commercial and **the weights are not distributed**.
 - Detector: Ultralytics YOLOv8, **AGPL-3.0**. Running it as a network service has
   source-offer obligations; see the model card.
-- Full licence notes: [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md). This repository
-  has no licence file yet (TBD).
+- Citations: [`docs/CITATIONS.bib`](docs/CITATIONS.bib). Full licence notes:
+  [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md). This repository has no licence file
+  yet (TBD).
 
 Built from an AIML339 course project at Victoria University of Wellington.
 

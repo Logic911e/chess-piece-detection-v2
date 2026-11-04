@@ -141,14 +141,20 @@ These need a decision before anything is made public.
   weights are derived from it, so they inherit the non-commercial restriction
   and should not be redistributed outside those terms. The project does not
   publish the weights.
-- **The chesscog rendered dataset**: the repository records that its code is MIT
-  licensed, but the licence of the data is **TBD**. Confirm it on the OSF page
-  before publishing the synthetic weights.
+- **The chesscog rendered dataset is CC BY 4.0.** This was read from the OSF
+  project record (node `xf3ka`) on 2026-11-04. It allows reuse, including
+  commercial use, with attribution. The chesscog code is MIT licensed. The
+  synthetic model is trained only on this data, but it starts from Ultralytics'
+  `yolov8s.pt`, so the AGPL point above still applies to it.
+- **Whether model weights count as an adaptation of the training data is not
+  settled in law**, and this card is not legal advice. The cautious reading is
+  that the fine-tuned weights must follow CC BY-NC-SA terms: non-commercial,
+  with attribution, and shared under the same licence if shared at all.
 - This is a non-commercial portfolio project.
 
 ## Citation and credit
 
 - Rendered dataset: Wölflein and Arandjelović, chesscog (OSF DOI above).
 - Real photographs: Masouris and van Gemert, ChessReD, VISAPP 2024 (DOI above).
-- Full BibTeX entries: TBD.
+- BibTeX entries: [`CITATIONS.bib`](CITATIONS.bib).
 - Detector: Ultralytics YOLOv8.
