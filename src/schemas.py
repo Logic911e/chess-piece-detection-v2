@@ -24,3 +24,24 @@ class PredictResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     models: list[str]
+
+
+class PositionResponse(BaseModel):
+    model: str
+    image_width: int
+    image_height: int
+    squares: dict[str, str] = Field(
+        description="Square to piece, e.g. {'e4': 'white-pawn'}. Empty squares are left out.",
+        examples=[{"e4": "white-pawn", "e5": "black-pawn"}],
+    )
+    fen_placement: str = Field(
+        description="Piece-placement field of a FEN string. Side to move, castling and "
+        "move counters cannot be read from a photo.",
+        examples=["8/8/8/4p3/4P3/8/8/8"],
+    )
+    pieces: int = Field(description="Number of pieces placed on the board")
+    ignored_detections: int = Field(
+        description="Detections not placed: outside the corners, or beaten by a more "
+        "confident detection on the same square"
+    )
+    inference_ms: float

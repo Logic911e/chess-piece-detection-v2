@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import cv2
 import numpy as np
 import pytest
@@ -11,6 +13,7 @@ from position import (
     detections_to_position,
     fen_placement,
     image_to_board,
+    parse_corners,
     square_name,
 )
 
@@ -109,3 +112,59 @@ def test_fen_placement():
     assert fen_placement(start) == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
     assert fen_placement({}) == "8/8/8/8/8/8/8/8"
     assert fen_placement({"e4": "white-pawn", "e5": "black-pawn"}) == "8/8/8/4p3/4P3/8/8/8"
+
+
+# --- parse_corners ---------------------------------------------------------
+
+GOOD_JSON = json.dumps(CORNERS)
+
+
+def test_parse_corners_accepts_a_good_board():
+    assert parse_corners(GOOD_JSON) == CORNERS
+
+
+def test_parse_corners_accepts_either_winding_direction():
+    # Clockwise on screen (the normal case) and mirrored (a flipped photo).
+    mirrored = {
+        "bottom_left": CORNERS["bottom_right"],
+        "bottom_right": CORNERS["bottom_left"],
+        "top_right": CORNERS["top_left"],
+        "top_left": CORNERS["top_right"],
+    }
+    assert parse_corners(json.dumps(mirrored)) == mirrored
+
+
+@pytest.mark.parametrize(
+    "raw, message",
+    [
+        ("not json", "JSON"),
+        ("[1, 2]", "exactly these keys"),
+        (json.dumps({"bottom_left": [0, 0]}), "exactly these keys"),
+        (json.dumps({**CORNERS, "top_left": [1]}), "two finite numbers"),
+        (json.dumps({**CORNERS, "top_left": ["a", "b"]}), "two finite numbers"),
+        (json.dumps({**CORNERS, "top_left": [True, False]}), "two finite numbers"),
+        (json.dumps({**CORNERS, "extra": [1, 2]}), "exactly these keys"),
+    ],
+)
+def test_parse_corners_rejects_malformed_input(raw, message):
+    with pytest.raises(ValueError, match=message):
+        parse_corners(raw)
+
+
+def test_parse_corners_rejects_non_finite_numbers():
+    # json.loads accepts the non-standard NaN token, so it must be caught here.
+    raw = GOOD_JSON.replace("200.0", "NaN", 1)
+    with pytest.raises(ValueError, match="two finite numbers"):
+        parse_corners(raw)
+
+
+def test_parse_corners_rejects_a_twisted_shape():
+    twisted = {**CORNERS, "top_left": CORNERS["top_right"], "top_right": CORNERS["top_left"]}
+    with pytest.raises(ValueError, match="do not form a board shape"):
+        parse_corners(json.dumps(twisted))
+
+
+def test_parse_corners_rejects_a_flat_shape():
+    flat = {k: [float(i * 100), 50.0] for i, k in enumerate(CORNERS)}
+    with pytest.raises(ValueError, match="do not form a board shape"):
+        parse_corners(json.dumps(flat))

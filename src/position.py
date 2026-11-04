@@ -11,6 +11,9 @@ Like predict.py, this module has no FastAPI or config imports.
 
 from __future__ import annotations
 
+import json
+import math
+
 import cv2
 import numpy as np
 
@@ -28,6 +31,46 @@ FEN_LETTER = {
     "queen": "q",
     "king": "k",
 }
+
+
+def parse_corners(raw: str) -> dict[str, list[float]]:
+    """Read corners sent as JSON text, e.g. {"bottom_left": [x, y], ...}.
+
+    Raises ValueError with a message meant for the user if the corners are
+    malformed or cannot be the corners of a board seen in a photo."""
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise ValueError("Corners must be JSON text") from None
+    if not isinstance(data, dict) or set(data) != set(CORNER_ORDER):
+        raise ValueError(f"Corners must have exactly these keys: {', '.join(CORNER_ORDER)}")
+
+    corners: dict[str, list[float]] = {}
+    for name in CORNER_ORDER:
+        point = data[name]
+        ok = (
+            isinstance(point, list)
+            and len(point) == 2
+            and all(isinstance(v, int | float) and not isinstance(v, bool) for v in point)
+            and all(math.isfinite(v) for v in point)
+        )
+        if not ok:
+            raise ValueError(f"Corner '{name}' must be two finite numbers [x, y]")
+        corners[name] = [float(point[0]), float(point[1])]
+
+    # Walking the corners in order must always turn the same way, otherwise the
+    # shape is twisted (two corners swapped) or flat, and no board looks like that.
+    pts = [corners[name] for name in CORNER_ORDER]
+    turns = []
+    for i in range(4):
+        (ax, ay), (bx, by), (cx, cy) = pts[i], pts[(i + 1) % 4], pts[(i + 2) % 4]
+        turns.append((bx - ax) * (cy - by) - (by - ay) * (cx - bx))
+    if not (all(t > 0 for t in turns) or all(t < 0 for t in turns)):
+        raise ValueError(
+            "The four corners do not form a board shape. Check that each corner is "
+            "on the right square (a1, h1, h8, a8)."
+        )
+    return corners
 
 
 def board_homography(corners: dict[str, list[float]]) -> np.ndarray:

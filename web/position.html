@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board to position</title>
+<style>
+  :root {
+    --page: #e4e9e6; --panel: #f3f6f4; --ink: #15302b; --muted: #556964; --line: #c3cdc8;
+    --green: #5e8574; --bone: #e9e4d4; --marker: #ffcb2e; --danger: #b3261e;
+    --action: #15302b; --action-ink: #f3f6f4; --warn-bg: #fff1c2; --warn-ink: #5c4300;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0f1b19; --panel: #172623; --ink: #e3ece8; --muted: #9fb2ac; --line: #2c3f3b;
+      --action: #ffcb2e; --action-ink: #15302b; --warn-bg: #3a2f10; --warn-ink: #f2d98a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.55 var(--sans); }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--marker); outline-offset: 2px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+           flex-wrap: wrap; }
+  .brand { font: 600 1.15rem var(--serif); letter-spacing: .01em; }
+  header a { font-size: .9rem; color: var(--muted); }
+
+  h1 { font: 500 clamp(2rem, 5vw, 3.2rem)/1.08 var(--serif); margin: 28px 0 10px; max-width: 18ch; }
+  .lead { margin: 0; max-width: 58ch; color: var(--muted); }
+
+  .steps { display: flex; gap: 6px; margin: 28px 0 18px; flex-wrap: wrap; }
+  .steps button { font: inherit; background: none; border: 0; border-bottom: 3px solid var(--line);
+                  color: var(--muted); padding: 8px 14px 6px 2px; margin-right: 12px; cursor: default; }
+  .steps button[data-done="true"] { cursor: pointer; color: var(--ink); border-color: var(--green); }
+  .steps button[aria-current="step"] { color: var(--ink); border-color: var(--ink); font-weight: 600; }
+
+  .grid { display: grid; gap: 28px; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  button.primary, a.primary, label.primary { font: 600 1rem var(--sans); background: var(--action); color: var(--action-ink);
+    border: 0; border-radius: 999px; padding: 12px 24px; min-height: 46px; cursor: pointer;
+    text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  label.primary { cursor: pointer; }
+  button.primary:disabled { opacity: .45; cursor: not-allowed; }
+  button.quiet { font: inherit; background: none; color: var(--ink); border: 1.5px solid var(--line);
+    border-radius: 999px; padding: 10px 18px; min-height: 44px; cursor: pointer; }
+  button.quiet:hover { border-color: var(--ink); }
+
+  /* Stage: choose a photo */
+  .drop { border: 2px dashed var(--line); border-radius: 4px; padding: 56px 20px; text-align: center;
+          background: var(--panel); }
+  .drop p { margin: 0 0 18px; color: var(--muted); max-width: 44ch; margin-inline: auto; }
+  .drop.over { border-color: var(--ink); }
+  input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+  /* Stage: corners */
+  .frame { position: relative; width: 100%; background: #000; border-radius: 4px; overflow: hidden;
+           touch-action: none; user-select: none; -webkit-user-select: none; }
+  .frame canvas.photo { display: block; width: 100%; height: auto; }
+  .frame svg.overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .handle { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
+            background: color-mix(in srgb, var(--marker) 88%, transparent); border: 2px solid #15302b;
+            color: #15302b; font: 700 .8rem var(--sans); display: grid; place-items: center;
+            cursor: grab; touch-action: none; }
+  .handle:active { cursor: grabbing; }
+  .loupe { position: absolute; width: 112px; height: 112px; border-radius: 50%; border: 3px solid var(--marker);
+           pointer-events: none; display: none; background: #000; box-shadow: 0 2px 10px #0008; }
+  .loupe.on { display: block; }
+  .loupe::after { content: ""; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px;
+                  margin: -7px 0 0 -7px; border: 1.5px solid var(--marker); border-radius: 50%; }
+  .loupe canvas { width: 100%; height: 100%; border-radius: 50%; display: block; }
+  .tools { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+  .hint { margin: 12px 0 0; color: var(--muted); font-size: .92rem; max-width: 62ch; }
+
+  /* Result */
+  .board { position: relative; width: 100%; max-width: 520px; aspect-ratio: 1; background: #0e1a17;
+           border-radius: 4px; overflow: hidden; }
+  .board canvas, .board svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .board svg.diagram { transition: opacity .35s ease; }
+  .board[data-view="photo"] svg.diagram .sq, .board[data-view="photo"] svg.diagram .piece { opacity: 0; }
+  .board[data-view="flying"] svg.diagram { opacity: 0; }
+  .grid-lines { stroke: var(--marker); stroke-width: .03; opacity: 0; }
+  .board[data-view="photo"] .grid-lines { opacity: .85; }
+  .placeholder { border: 2px dashed var(--line); border-radius: 4px; padding: 28px 22px; color: var(--muted);
+                 max-width: 520px; }
+  .placeholder h2 { font: 500 1.25rem var(--serif); color: var(--ink); margin: 0 0 10px; }
+  .placeholder ul { margin: 0; padding-left: 1.1em; }
+  .placeholder li { margin: 6px 0; }
+  .result h2 { font: 500 1.25rem var(--serif); margin: 0 0 10px; }
+  .summary { margin: 12px 0 0; color: var(--muted); font-size: .92rem; max-width: 52ch; }
+  .fen { display: grid; gap: 10px; margin-top: 18px; max-width: 520px; }
+  .fen input[type=text] { width: 100%; font: .9rem ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        padding: 11px 12px; border: 1.5px solid var(--line); border-radius: 4px; background: var(--panel);
+        color: var(--ink); }
+  .side { display: flex; gap: 18px; align-items: center; font-size: .95rem; border: 0; padding: 0; margin: 0; }
+  .side legend { float: left; margin-right: 14px; padding: 0; color: var(--muted); }
+  .side label { display: inline-flex; gap: 6px; align-items: center; min-height: 36px; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .toggle { margin-top: 12px; }
+
+  .notice { margin-top: 14px; padding: 10px 12px; border-radius: 4px; display: none; max-width: 62ch; }
+  .notice.warn { display: block; background: var(--warn-bg); color: var(--warn-ink); }
+  .notice.err { display: block; background: color-mix(in srgb, var(--danger) 14%, var(--panel)); color: var(--danger); }
+  @media (prefers-color-scheme: dark) { .notice.err { color: #f4b4ae; } }
+
+  .status { display: inline-block; font-size: .8rem; padding: 1px 9px; border-radius: 99px;
+            border: 1px solid var(--line); color: var(--muted); margin-left: 6px; }
+  .status.ok { color: var(--green); border-color: var(--green); }
+  details.conn { margin-top: 36px; color: var(--muted); font-size: .9rem; }
+  details.conn summary { cursor: pointer; }
+  details.conn label { display: block; margin: 12px 0 4px; }
+  details.conn input, details.conn select { font: inherit; padding: 8px; border: 1px solid var(--line);
+        border-radius: 4px; background: var(--panel); color: var(--ink); width: min(100%, 360px); }
+  .fine { margin-top: 22px; font-size: .82rem; color: var(--muted); max-width: 70ch; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { .board svg.diagram { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="brand">Board to position</span>
+    <a href="index.html">Compare the two models on a photo</a>
+  </header>
+
+  <h1>Photograph a board. Get the position.</h1>
+  <p class="lead">Mark the four corners of the board on your photo. The detector places every piece on its square and gives you a diagram and a FEN to open in an analysis board.</p>
+
+  <nav class="steps" aria-label="Progress">
+    <button type="button" id="step-photo">Photo</button>
+    <button type="button" id="step-corners">Corners</button>
+    <button type="button" id="step-position">Position</button>
+  </nav>
+
+  <div class="grid">
+    <section aria-label="Photo and corners" id="stage">
+      <div id="drop" class="drop">
+        <p>Choose a photo of a chess position. JPEG or PNG; larger files are shrunk in your browser before they are sent.</p>
+        <label class="primary" for="file" tabindex="0" id="chooseLabel" role="button">Choose photo</label>
+        <input id="file" type="file" accept="image/jpeg,image/png">
+      </div>
+
+      <div id="editor" hidden>
+        <div class="frame" id="frame">
+          <canvas class="photo" id="photo"></canvas>
+          <svg class="overlay" id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="loupe" id="loupe"><canvas id="loupeCanvas" width="224" height="224"></canvas></div>
+        </div>
+        <div class="tools">
+          <button class="primary" id="read" type="button">Read position</button>
+          <button class="quiet" id="rotate" type="button">Turn labels</button>
+          <button class="quiet" id="reset" type="button">Reset corners</button>
+          <button class="quiet" id="another" type="button">Choose another photo</button>
+        </div>
+        <p class="hint" id="cornerHint">Drag each handle to the matching corner of the 8x8 playing area, inside the board's frame. a1 is the corner at White's left. If the labels are on the wrong corners because you photographed from Black's side, use Turn labels. Arrow keys nudge a focused handle.</p>
+      </div>
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    </section>
+
+    <section aria-label="Position" id="side">
+      <div id="placeholder" class="placeholder">
+        <h2>Before you start</h2>
+        <ul>
+          <li>Keep all four corners of the board in the photo.</li>
+          <li>Shoot from one side of the board and from as high as you comfortably can. A higher angle hides fewer pieces behind others.</li>
+          <li>The result is only as good as the corners: placing them a little off the true corners moves pieces onto the wrong squares.</li>
+        </ul>
+      </div>
+
+      <div id="result" class="result" hidden>
+        <h2>Position</h2>
+        <div class="board" id="board" data-view="diagram">
+          <canvas id="flat" width="480" height="480"></canvas>
+          <svg class="diagram" id="diagram" viewBox="0 0 8 8" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Chess board diagram"></svg>
+        </div>
+        <button class="quiet toggle" id="viewToggle" type="button" aria-pressed="false">Show straightened photo</button>
+        <p class="summary" id="summary"></p>
+        <div class="fen">
+          <fieldset class="side">
+            <legend>Side to move</legend>
+            <label><input type="radio" name="turn" value="w" checked> White</label>
+            <label><input type="radio" name="turn" value="b"> Black</label>
+          </fieldset>
+          <input id="fen" type="text" readonly aria-label="FEN">
+          <div class="actions">
+            <button class="primary" id="copy" type="button">Copy FEN</button>
+            <a class="primary" id="lichess" href="#" target="_blank" rel="noopener noreferrer">Analyse on Lichess</a>
+            <button class="quiet" id="adjust" type="button">Adjust corners</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <p class="fine">A photo shows piece placement only. Whose turn it is is set above; castling rights and move counters are left out of the FEN. Check the diagram against your board before relying on it. Non-commercial demo; the models and datasets have their own licences, see the project README.</p>
+
+  <details class="conn">
+    <summary>Connection and model <span id="status" class="status">checking</span></summary>
+    <label for="api">API address</label>
+    <input id="api" type="text" spellcheck="false">
+    <label for="model">Model</label>
+    <select id="model">
+      <option value="finetuned" selected>Fine-tuned on real photos</option>
+      <option value="synthetic">Synthetic only</option>
+    </select>
+  </details>
+</div>
+
+<script>
+"use strict";
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // must match the API limit
+const SLOW_AFTER_MS = 4000;
+const REQUEST_TIMEOUT_MS = 90000;
+const FLIGHT_MS = 900;
+const FLAT = 480;                          // size of the straightened-photo canvas
+const SAMPLE_MAX = 1600;                   // longest side used when sampling the photo
+const LABELS = ["a1", "h1", "h8", "a8"];   // corner names, in payload order
+const CORNER_KEYS = ["bottom_left", "bottom_right", "top_right", "top_left"];
+// Order handles sit on screen by default: top-left, top-right, bottom-right, bottom-left.
+const DEFAULT_LABEL_AT = ["a8", "h8", "h1", "a1"];
+const GLYPH = { pawn: "♟", rook: "♜", knight: "♞", bishop: "♝", queen: "♛", king: "♚" };
+
+const $ = (id) => document.getElementById(id);
+const els = {
+  api: $("api"), model: $("model"), status: $("status"), notice: $("notice"), file: $("file"),
+  drop: $("drop"), editor: $("editor"), frame: $("frame"), photo: $("photo"), overlay: $("overlay"),
+  loupe: $("loupe"), loupeCanvas: $("loupeCanvas"), read: $("read"), rotate: $("rotate"),
+  reset: $("reset"), another: $("another"), placeholder: $("placeholder"), result: $("result"),
+  board: $("board"), flat: $("flat"), diagram: $("diagram"), viewToggle: $("viewToggle"),
+  summary: $("summary"), fen: $("fen"), copy: $("copy"), lichess: $("lichess"), adjust: $("adjust"),
+  steps: { photo: $("step-photo"), corners: $("step-corners"), position: $("step-position") },
+};
+
+const state = {
+  blob: null, bitmap: null, iw: 0, ih: 0,
+  points: [],            // four handles, screen order TL, TR, BR, BL, in image pixels
+  labelShift: 0,         // how far the labels are turned from the default
+  placement: "", squares: {}, quadForFlight: null,
+  stage: "photo", reached: 0, flight: 0,
+};
+
+els.api.value = new URLSearchParams(location.search).get("api") || "http://localhost:8080";
+const apiBase = () => els.api.value.trim().replace(/\/+$/, "");
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- messages and status ---------- */
+
+function notice(kind, text) {
+  els.notice.className = "notice" + (kind ? " " + kind : "");
+  els.notice.textContent = text || "";
+}
+function setStatus(text, ok) { els.status.textContent = text; els.status.className = "status" + (ok ? " ok" : ""); }
+
+async function checkHealth() {
+  setStatus("checking", false);
+  const slow = setTimeout(() => setStatus("waking up", false), SLOW_AFTER_MS);
+  try {
+    const r = await fetch(apiBase() + "/health", { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    setStatus("online", true);
+  } catch (_) { setStatus("unreachable", false); } finally { clearTimeout(slow); }
+}
+
+/* ---------- steps ---------- */
+
+function goTo(stage) {
+  state.stage = stage;
+  const order = ["photo", "corners", "position"];
+  state.reached = Math.max(state.reached, order.indexOf(stage));
+  order.forEach((name, i) => {
+    const b = els.steps[name];
+    b.setAttribute("aria-current", name === stage ? "step" : "false");
+    b.dataset.done = String(i <= state.reached && name !== stage);
+    b.disabled = i > state.reached;
+  });
+  els.drop.hidden = stage !== "photo";
+  els.editor.hidden = stage === "photo";
+  els.placeholder.hidden = stage === "position";
+  els.result.hidden = stage !== "position";
+}
+els.steps.photo.addEventListener("click", () => { if (state.reached >= 0) els.file.click(); });
+els.steps.corners.addEventListener("click", () => { if (state.reached >= 1) goTo("corners"); });
+els.steps.position.addEventListener("click", () => { if (state.reached >= 2) goTo("position"); });
+
+/* ---------- loading a photo ---------- */
+
+async function prepareImage(file) {
+  const bitmap = await createImageBitmap(file);   // applies the photo's rotation tag
+  if (file.size <= MAX_UPLOAD_BYTES) return { blob: file, bitmap, shrunk: false };
+  for (const maxSide of [2048, 1280]) {
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bitmap.width * scale);
+    c.height = Math.round(bitmap.height * scale);
+    c.getContext("2d").drawImage(bitmap, 0, 0, c.width, c.height);
+    const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.9));
+    if (blob && blob.size <= MAX_UPLOAD_BYTES) return { blob, bitmap: await createImageBitmap(blob), shrunk: true };
+  }
+  throw new Error("This image is too large to send, even after shrinking it.");
+}
+
+async function loadFile(file) {
+  if (!file) return;
+  notice("", "");
+  try {
+    const { blob, bitmap, shrunk } = await prepareImage(file);
+    Object.assign(state, { blob, bitmap, iw: bitmap.width, ih: bitmap.height, labelShift: 0 });
+    state.reached = 0;
+    drawPhoto();
+    resetCorners();
+    goTo("corners");
+    els.result.hidden = true;
+    if (shrunk) notice("warn", "The photo was over 5 MB, so it was shrunk in your browser before sending.");
+  } catch (e) {
+    notice("err", "Could not open that image. Choose a JPEG or PNG photo.");
+  }
+}
+els.file.addEventListener("change", () => loadFile(els.file.files[0]));
+els.another.addEventListener("click", () => els.file.click());
+$("chooseLabel").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); els.file.click(); } });
+["dragover", "dragenter"].forEach((t) => els.drop.addEventListener(t, (e) => { e.preventDefault(); els.drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((t) => els.drop.addEventListener(t, () => els.drop.classList.remove("over")));
+els.drop.addEventListener("drop", (e) => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); });
+
+function drawPhoto() {
+  const scale = Math.min(1, 1600 / Math.max(state.iw, state.ih));
+  els.photo.width = Math.round(state.iw * scale);
+  els.photo.height = Math.round(state.ih * scale);
+  els.photo.getContext("2d").drawImage(state.bitmap, 0, 0, els.photo.width, els.photo.height);
+}
+
+/* ---------- geometry ---------- */
+
+// Homography from four point pairs (src -> dst), solved by Gaussian elimination.
+function solveH(src, dst) {
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i], [u, v] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+  }
+  const n = 8;
+  for (let i = 0; i < n; i++) {
+    let p = i;
+    for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+    [A[i], A[p]] = [A[p], A[i]]; [b[i], b[p]] = [b[p], b[i]];
+    for (let r = i + 1; r < n; r++) {
+      const f = A[r][i] / A[i][i];
+      for (let c = i; c < n; c++) A[r][c] -= f * A[i][c];
+      b[r] -= f * b[i];
+    }
+  }
+  const h = new Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = b[i];
+    for (let c = i + 1; c < n; c++) s -= A[i][c] * h[c];
+    h[i] = s / A[i][i];
+  }
+  return [...h, 1];
+}
+function applyH(H, x, y) {
+  const w = H[6] * x + H[7] * y + H[8];
+  return [(H[0] * x + H[1] * y + H[2]) / w, (H[3] * x + H[4] * y + H[5]) / w];
+}
+function invertH(H) {
+  const [a, b, c, d, e, f, g, h, i] = H;
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
+  const det = a * A + b * B + c * C;
+  return [A, -(b * i - c * h), b * f - c * e, B, a * i - c * g, -(a * f - c * d), C, -(a * h - b * g), a * e - b * d].map((v) => v / det);
+}
+
+/* ---------- corners: labels, handles, grid ---------- */
+
+// Label of handle i (screen order TL, TR, BR, BL) after turning the labels.
+function labelOf(i) {
+  const base = LABELS.indexOf(DEFAULT_LABEL_AT[i]);
+  return LABELS[(base + state.labelShift) % 4];
+}
+// Corner points in payload order a1, h1, h8, a8.
+function cornersInOrder() {
+  const byLabel = {};
+  state.points.forEach((p, i) => { byLabel[labelOf(i)] = p; });
+  return LABELS.map((l) => byLabel[l]);
+}
+
+function resetCorners() {
+  const { iw, ih } = state, mx = iw * 0.12, my = ih * 0.12;
+  state.points = [[mx, my], [iw - mx, my], [iw - mx, ih - my], [mx, ih - my]];
+  buildHandles();
+  renderOverlay();
+}
+els.reset.addEventListener("click", () => { resetCorners(); notice("", ""); });
+els.rotate.addEventListener("click", () => { state.labelShift = (state.labelShift + 1) % 4; refreshHandleLabels(); renderOverlay(); });
+
+function buildHandles() {
+  els.frame.querySelectorAll(".handle").forEach((h) => h.remove());
+  state.points.forEach((_, i) => {
+    const h = document.createElement("div");
+    h.className = "handle";
+    h.tabIndex = 0;
+    h.setAttribute("role", "button");
+    h.dataset.i = i;
+    els.frame.append(h);
+    h.addEventListener("pointerdown", (e) => startDrag(e, i, h));
+    h.addEventListener("keydown", (e) => nudge(e, i));
+  });
+  refreshHandleLabels();
+}
+function refreshHandleLabels() {
+  els.frame.querySelectorAll(".handle").forEach((h) => {
+    const i = Number(h.dataset.i), label = labelOf(i);
+    h.textContent = label;
+    h.setAttribute("aria-label", `Corner ${label}. Use the arrow keys to move it.`);
+  });
+  positionHandles();
+}
+function positionHandles() {
+  els.frame.querySelectorAll(".handle").forEach((h) => {
+    const [x, y] = state.points[Number(h.dataset.i)];
+    h.style.left = (x / state.iw) * 100 + "%";
+    h.style.top = (y / state.ih) * 100 + "%";
+  });
+}
+
+function renderOverlay() {
+  const pts = cornersInOrder();
+  const H = solveH(pts, [[0, 0], [8, 0], [8, 8], [0, 8]]);
+  const inv = invertH(H);
+  const ns = "http://www.w3.org/2000/svg";
+  els.overlay.setAttribute("viewBox", `0 0 ${state.iw} ${state.ih}`);
+  els.overlay.replaceChildren();
+  const w = Math.max(state.iw, state.ih) / 450;
+  const line = (p, q, strong) => {
+    const l = document.createElementNS(ns, "line");
+    l.setAttribute("x1", p[0]); l.setAttribute("y1", p[1]); l.setAttribute("x2", q[0]); l.setAttribute("y2", q[1]);
+    l.setAttribute("stroke", "#ffcb2e"); l.setAttribute("stroke-width", strong ? w * 1.6 : w * 0.8);
+    l.setAttribute("stroke-opacity", strong ? "0.95" : "0.6");
+    els.overlay.append(l);
+  };
+  for (let k = 0; k <= 8; k++) {
+    const edge = k === 0 || k === 8;
+    line(applyH(inv, k, 0), applyH(inv, k, 8), edge);
+    line(applyH(inv, 0, k), applyH(inv, 8, k), edge);
+  }
+}
+
+function pointerToImage(e) {
+  const r = els.frame.getBoundingClientRect();
+  const x = Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1) * state.iw;
+  const y = Math.min(Math.max((e.clientY - r.top) / r.height, 0), 1) * state.ih;
+  return [x, y];
+}
+
+function showLoupe(i) {
+  const [x, y] = state.points[i];
+  const r = els.frame.getBoundingClientRect();
+  const region = 28 * (state.iw / r.width);            // 28 screen pixels of the photo, magnified
+  const ctx = els.loupeCanvas.getContext("2d");
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, 224, 224);
+  ctx.drawImage(state.bitmap, x - region / 2, y - region / 2, region, region, 0, 0, 224, 224);
+  const sx = (x / state.iw) * r.width, sy = (y / state.ih) * r.height;
+  const above = sy > 150;
+  els.loupe.style.left = Math.min(Math.max(sx - 56, 0), r.width - 112) + "px";
+  els.loupe.style.top = (above ? sy - 170 : sy + 58) + "px";
+  els.loupe.classList.add("on");
+}
+
+function startDrag(e, i, handle) {
+  e.preventDefault();
+  handle.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    state.points[i] = pointerToImage(ev);
+    positionHandles();
+    renderOverlay();
+    showLoupe(i);
+  };
+  const end = () => {
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", end);
+    handle.removeEventListener("pointercancel", end);
+    els.loupe.classList.remove("on");
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+  move(e);
+}
+
+function nudge(e, i) {
+  const step = e.shiftKey ? 10 : 1, r = els.frame.getBoundingClientRect(), k = state.iw / r.width;
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  const [x, y] = state.points[i];
+  state.points[i] = [Math.min(Math.max(x + d[0] * step * k, 0), state.iw), Math.min(Math.max(y + d[1] * step * k, 0), state.ih)];
+  positionHandles();
+  renderOverlay();
+  showLoupe(i);
+  clearTimeout(nudge.t);
+  nudge.t = setTimeout(() => els.loupe.classList.remove("on"), 900);
+}
+
+/* ---------- calling the API ---------- */
+
+async function readPosition() {
+  els.read.disabled = true;
+  notice("", "");
+  const slow = setTimeout(() => notice("warn",
+    "Waiting for the server. If it has been idle, the first request can take up to a minute while the models load."), SLOW_AFTER_MS);
+  try {
+    const pts = cornersInOrder();
+    const corners = Object.fromEntries(CORNER_KEYS.map((k, i) => [k, pts[i].map((v) => Math.round(v * 10) / 10)]));
+    const form = new FormData();
+    form.append("file", state.blob, "board.jpg");
+    form.append("corners", JSON.stringify(corners));
+    const r = await fetch(`${apiBase()}/position?model=${els.model.value}`, {
+      method: "POST", body: form, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    if (!r.ok) {
+      let detail = "HTTP " + r.status;
+      try { const j = await r.json(); if (typeof j.detail === "string") detail = j.detail; } catch (_) {}
+      throw new Error(detail);
+    }
+    const data = await r.json();
+    setStatus("online", true);
+    notice("", "");
+    showResult(data, pts);
+  } catch (e) {
+    const timedOut = e.name === "TimeoutError", network = e instanceof TypeError;
+    notice("err", timedOut ? "The server took too long to answer. Try again in a moment."
+      : network ? "Could not reach the API. Check the address under Connection and model, and that the server is running."
+      : e.message);
+  } finally {
+    clearTimeout(slow);
+    els.read.disabled = false;
+  }
+}
+els.read.addEventListener("click", readPosition);
+els.adjust.addEventListener("click", () => goTo("corners"));
+
+/* ---------- result: diagram, FEN, flattening ---------- */
+
+function buildDiagram(squares) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = els.diagram;
+  svg.replaceChildren();
+  const add = (tag, attrs, text) => {
+    const n = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+  const sq = add("g", { class: "sq" }), pc = add("g", { class: "piece" }), gl = add("g", { class: "grid-lines" });
+  for (let r = 0; r < 8; r++) {
+    for (let f = 0; f < 8; f++) {
+      const dark = (f + r) % 2 === 0;           // a1 is a dark square
+      sq.append(add("rect", { x: f, y: 7 - r, width: 1, height: 1, fill: dark ? "#5e8574" : "#e9e4d4" }));
+      if (f === 0) sq.append(add("text", { x: f + 0.06, y: 7 - r + 0.27, "font-size": 0.2, "font-family": "system-ui, sans-serif",
+        "font-weight": 600, fill: dark ? "#e9e4d4" : "#5e8574" }, String(r + 1)));
+      if (r === 0) sq.append(add("text", { x: f + 0.94, y: 7 - r + 0.95, "font-size": 0.2, "text-anchor": "end", "font-family": "system-ui, sans-serif",
+        "font-weight": 600, fill: dark ? "#e9e4d4" : "#5e8574" }, "abcdefgh"[f]));
+    }
+  }
+  for (const [name, cls] of Object.entries(squares)) {
+    const f = "abcdefgh".indexOf(name[0]), r = Number(name[1]) - 1;
+    const [colour, piece] = cls.split("-");
+    const white = colour === "white";
+    const t = add("text", {
+      x: f + 0.5, y: 7 - r + 0.78, "font-size": 0.82, "text-anchor": "middle",
+      "font-family": '"Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "DejaVu Sans", sans-serif',
+      fill: white ? "#fbfaf4" : "#17201e", stroke: white ? "#17201e" : "#f3efe0", "stroke-width": white ? 0.035 : 0.012,
+      "paint-order": "stroke",
+    }, GLYPH[piece] + "︎");
+    t.setAttribute("aria-label", `${cls} on ${name}`);
+    pc.append(t);
+  }
+  for (let k = 0; k <= 8; k++) {
+    gl.append(add("line", { x1: k, y1: 0, x2: k, y2: 8 }), add("line", { x1: 0, y1: k, x2: 8, y2: k }));
+  }
+  svg.append(sq, gl, pc);
+}
+
+function updateFen() {
+  const fen = `${state.placement} ${document.querySelector('input[name="turn"]:checked').value} - - 0 1`;
+  els.fen.value = fen;
+  els.lichess.href = "https://lichess.org/analysis/" + fen.replaceAll(" ", "_");
+}
+document.querySelectorAll('input[name="turn"]').forEach((r) => r.addEventListener("change", updateFen));
+els.fen.addEventListener("focus", () => els.fen.select());
+els.copy.addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(els.fen.value); els.copy.textContent = "Copied"; }
+  catch (_) { els.fen.select(); document.execCommand && document.execCommand("copy"); els.copy.textContent = "Copied"; }
+  setTimeout(() => { els.copy.textContent = "Copy FEN"; }, 1600);
+});
+
+function setView(view) {
+  els.board.dataset.view = view;
+  const photo = view === "photo";
+  els.viewToggle.setAttribute("aria-pressed", String(photo));
+  els.viewToggle.textContent = photo ? "Show diagram" : "Show straightened photo";
+}
+els.viewToggle.addEventListener("click", () => setView(els.board.dataset.view === "photo" ? "diagram" : "photo"));
+
+let sample = null;   // photo pixels at reduced size, for the straightened view
+function samplePixels() {
+  const s = Math.min(1, SAMPLE_MAX / Math.max(state.iw, state.ih));
+  const c = document.createElement("canvas");
+  c.width = Math.round(state.iw * s); c.height = Math.round(state.ih * s);
+  c.getContext("2d").drawImage(state.bitmap, 0, 0, c.width, c.height);
+  sample = { data: c.getContext("2d").getImageData(0, 0, c.width, c.height), scale: s };
+}
+
+// Draw the photo warped so its board quad sits at `dstQuad` (canvas pixels).
+function drawWarp(dstQuad, srcQuad) {
+  const ctx = els.flat.getContext("2d");
+  const out = ctx.createImageData(FLAT, FLAT);
+  const inv = invertH(solveH(srcQuad, dstQuad));
+  const { data, scale } = sample, w = data.width, h = data.height, px = data.data;
+  for (let y = 0; y < FLAT; y++) {
+    for (let x = 0; x < FLAT; x++) {
+      const [sx, sy] = applyH(inv, x + 0.5, y + 0.5);
+      const ix = Math.floor(sx * scale), iy = Math.floor(sy * scale), o = (y * FLAT + x) * 4;
+      if (ix >= 0 && iy >= 0 && ix < w && iy < h) {
+        const s = (iy * w + ix) * 4;
+        out.data[o] = px[s]; out.data[o + 1] = px[s + 1]; out.data[o + 2] = px[s + 2]; out.data[o + 3] = 255;
+      } else out.data[o + 3] = 0;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+}
+
+function flatten(pts) {
+  const target = [[0, FLAT], [FLAT, FLAT], [FLAT, 0], [0, 0]];       // a1, h1, h8, a8 on the canvas
+  const fit = Math.min(FLAT / state.iw, FLAT / state.ih);
+  const ox = (FLAT - state.iw * fit) / 2, oy = (FLAT - state.ih * fit) / 2;
+  const start = pts.map(([x, y]) => [x * fit + ox, y * fit + oy]);   // where the board sits when the photo is fitted
+  const token = ++state.flight;
+  samplePixels();
+  if (reduceMotion()) { drawWarp(target, pts); setView("diagram"); return; }
+
+  setView("flying");
+  const t0 = performance.now();
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const frame = (now) => {
+    if (token !== state.flight) return;
+    const t = Math.min(1, (now - t0) / FLIGHT_MS), e = ease(t);
+    drawWarp(start.map((p, i) => [p[0] + (target[i][0] - p[0]) * e, p[1] + (target[i][1] - p[1]) * e]), pts);
+    if (t < 1) requestAnimationFrame(frame); else setView("diagram");
+  };
+  requestAnimationFrame(frame);
+}
+
+function showResult(data, pts) {
+  state.squares = data.squares;
+  state.placement = data.fen_placement;
+  buildDiagram(data.squares);
+  updateFen();
+  const bits = [`${data.pieces} ${data.pieces === 1 ? "piece" : "pieces"} placed`];
+  if (data.ignored_detections) bits.push(`${data.ignored_detections} detected but left out (outside the corners, or two on one square)`);
+  els.summary.textContent = bits.join(", ") + ".";
+  if (data.pieces === 0) notice("warn", "No pieces were found inside the corners. Check that the corners sit on the board and try again.");
+  goTo("position");
+  flatten(pts);
+  els.result.scrollIntoView({ block: "nearest", behavior: reduceMotion() ? "auto" : "smooth" });
+}
+
+els.api.addEventListener("change", checkHealth);
+window.addEventListener("resize", () => { if (!els.editor.hidden) positionHandles(); });
+goTo("photo");
+checkHealth();
+</script>
+</body>
+</html>

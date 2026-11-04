@@ -95,6 +95,25 @@ in the `CORS_ORIGINS` environment variable, which defaults to
 `http://localhost:8000,http://127.0.0.1:8000`. A different API address can be
 passed as `?api=https://...`.
 
+## Photo to position
+
+`web/position.html` turns a photo of a board into a diagram and a FEN. You mark the
+four board corners on the photo (draggable handles, a projected 8x8 grid and a
+magnifier help), the API places each detected piece on its square, and the page draws
+a top-down board with a link to open it on Lichess. The photo's board can also be shown
+straightened, which makes it easy to check the squares against the diagram.
+
+![The position page: corners marked on the photo and the resulting top-down board](docs/position-demo.jpg)
+
+Served the same way as the other page (`python -m http.server 8000 --directory web`,
+then open http://localhost:8000/position.html).
+
+How well it works, from `docs/POSITION.md`: with the annotated corners, the fine-tuned
+model gets the whole position exactly right in 96.73% of the 306 test photographs
+(three games, so likely optimistic). Accuracy falls quickly once the corners are off by
+more than about 1% of the board's side, and corners marked by hand have not been
+measured. The board is not found automatically, and only piece placement is read.
+
 ## API
 
 Interactive docs are at `/docs` once the server is running.
@@ -103,6 +122,7 @@ Interactive docs are at `/docs` once the server is running.
 |---|---|
 | `GET /health` | `{"status": "ok", "models": ["synthetic", "finetuned"]}` |
 | `POST /predict` | Upload a JPEG or PNG (up to 5 MB). Query: `model` is `synthetic` or `finetuned` (default `finetuned`); `conf` is 0 to 1 (default 0.25) |
+| `POST /position` | Same upload plus a `corners` form field (JSON, pixels of the uploaded image: `bottom_left` is a1, `bottom_right` h1, `top_right` h8, `top_left` a8). Query: `model`, `conf` (default 0.5), `anchor_y` (default 0.9). Returns the squares and the FEN piece-placement field |
 
 ```bash
 curl -X POST "http://localhost:8080/predict?model=finetuned&conf=0.25" \
@@ -126,13 +146,16 @@ readable image, 422 invalid `model` or `conf`.
 src/predict.py        load both models once, run inference, return plain dicts
 src/app.py            FastAPI app: /health and /predict, upload validation, CORS
 src/schemas.py        response models
-web/index.html        static demo page
+src/position.py       board corners to squares and FEN (homography)
+web/index.html        static page: compare the two models on a photo
+web/position.html     static page: photo to position (corners, diagram, FEN)
 tests/                pytest tests (stub model, so they run without weights)
 scripts/              MLflow logging of the training runs
 Dockerfile            CPU-only PyTorch, non-root user, healthcheck
 .github/workflows/    CI: ruff, pytest, docker build
 docs/MODEL_CARD.md    what the models are, how they were trained, how they fail
 docs/DEPLOY.md        Cloud Run commands, budget alert, teardown
+docs/POSITION.md      photo-to-position method and results
 docs/TRAINING.md      original course-project README: data download, training
 docs/PORTFOLIO_COPY.md  draft post and CV entry (not posted)
 RESULTS.md            experiment log with the source of every number
@@ -179,9 +202,9 @@ amd64, so it must be built for that platform.
   and each handset photographed one game, so camera and game cannot be separated.
 - **The synthetic model is under-trained.** It ran 8 of 50 planned epochs, so the
   79.8% drop may be a little overstated.
-- **The API only detects.** Recovering the position from corners is a tested module
-  and a first evaluation (see [`docs/POSITION.md`](docs/POSITION.md)), but is not
-  in the API or demo page yet, and the board corners are not found automatically.
+- **Corners are marked by hand.** The board is not found automatically. The
+  position accuracy in `docs/POSITION.md` assumes exact corners and falls quickly as
+  they get less precise.
 - **Untested conditions.** Lighting, angle and chess sets outside ChessReD have
   not been tested.
 - **Fine-tuning points from 100 photographs up are single runs.**

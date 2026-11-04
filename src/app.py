@@ -1,4 +1,4 @@
-"""FastAPI service: GET /health and POST /predict.
+"""FastAPI service: GET /health, POST /predict and POST /position.
 
 Run locally:  uvicorn app:app --app-dir src --port 8080
 """
@@ -12,13 +12,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from PIL import Image
+from PIL import Image, ImageOps
 
+from position import detections_to_position, fen_placement, parse_corners
 from predict import load_models, predict
-from schemas import HealthResponse, PredictResponse
+from schemas import HealthResponse, PositionResponse, PredictResponse
 
 log = logging.getLogger("chess-api")
 
@@ -55,15 +56,8 @@ def health(request: Request):
     return {"status": "ok", "models": list(request.app.state.models)}
 
 
-# A plain `def` endpoint runs in a worker thread, so CPU-heavy inference
-# does not block the event loop.
-@app.post("/predict", response_model=PredictResponse)
-def predict_endpoint(
-    request: Request,
-    file: Annotated[UploadFile, File(description="JPEG or PNG, up to 5 MB")],
-    model: Annotated[Literal["synthetic", "finetuned"], Query()] = "finetuned",
-    conf: Annotated[float, Query(ge=0.0, le=1.0, description="Minimum confidence")] = 0.25,
-):
+def read_upload(file: UploadFile) -> Image.Image:
+    """Validate an uploaded image and decode it. Shared by the image endpoints."""
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(415, "Upload a JPEG or PNG image")
 
@@ -74,8 +68,62 @@ def predict_endpoint(
         raise HTTPException(413, f"Image is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB")
 
     try:
-        image = Image.open(io.BytesIO(data)).convert("RGB")
+        image = Image.open(io.BytesIO(data))
+        # Phones store a rotated photo as upright pixels plus an orientation tag.
+        # Browsers apply the tag when they show the photo, so apply it here too,
+        # otherwise boxes and corners would not line up with what the user saw.
+        return ImageOps.exif_transpose(image).convert("RGB")
     except Exception:  # corrupt data, truncated file, decompression bomb, ...
         raise HTTPException(400, "Could not read the file as an image") from None
 
+
+# A plain `def` endpoint runs in a worker thread, so CPU-heavy inference
+# does not block the event loop.
+@app.post("/predict", response_model=PredictResponse)
+def predict_endpoint(
+    request: Request,
+    file: Annotated[UploadFile, File(description="JPEG or PNG, up to 5 MB")],
+    model: Annotated[Literal["synthetic", "finetuned"], Query()] = "finetuned",
+    conf: Annotated[float, Query(ge=0.0, le=1.0, description="Minimum confidence")] = 0.25,
+):
+    image = read_upload(file)
     return predict(request.app.state.models, model, image, conf)
+
+
+@app.post("/position", response_model=PositionResponse)
+def position_endpoint(
+    request: Request,
+    file: Annotated[UploadFile, File(description="JPEG or PNG, up to 5 MB")],
+    corners: Annotated[
+        str,
+        Form(
+            description="JSON with the board corners in pixels of the uploaded image, "
+            'for example {"bottom_left": [x, y], "bottom_right": [x, y], '
+            '"top_right": [x, y], "top_left": [x, y]}. bottom_left is the a1 corner, '
+            "bottom_right h1, top_right h8 and top_left a8."
+        ),
+    ],
+    model: Annotated[Literal["synthetic", "finetuned"], Query()] = "finetuned",
+    conf: Annotated[float, Query(ge=0.0, le=1.0, description="Minimum confidence")] = 0.5,
+    anchor_y: Annotated[
+        float, Query(ge=0.5, le=1.0, description="Where on a box the piece stands")
+    ] = 0.9,
+):
+    try:
+        board_corners = parse_corners(corners)
+    except ValueError as err:
+        raise HTTPException(422, str(err)) from None
+
+    image = read_upload(file)
+    result = predict(request.app.state.models, model, image, conf)
+    squares = detections_to_position(result["detections"], board_corners, anchor_y)
+    return {
+        "model": model,
+        "image_width": result["image_width"],
+        "image_height": result["image_height"],
+        "squares": squares,
+        "fen_placement": fen_placement(squares),
+        "pieces": len(squares),
+        "ignored_detections": len(result["detections"]) - len(squares),
+        "inference_ms": result["inference_ms"],
+    }
