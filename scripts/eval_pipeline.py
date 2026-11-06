@@ -10,6 +10,9 @@ on the test split. Piece settings stay at the values tuned there earlier (anchor
 
     python scripts/eval_pipeline.py --data ../data/raw/chessred \\
         --weights build/runs/corners-n-nomosaic/weights/best.pt
+
+Add --stage2 with the weights of the crop model to run the second stage on the first stage's
+corners before everything else.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ import sys
 from pathlib import Path
 
 import cv2
+from PIL import Image
 from ultralytics import YOLO
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,7 +33,9 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from eval_position import load_ground_truth, score  # noqa: E402
+from prepare_corner_data import screen_order  # noqa: E402
 
+from crops import crop_square, from_crop  # noqa: E402
 from position import (  # noqa: E402
     CORNER_ORDER,
     detections_to_position,
@@ -41,6 +47,7 @@ from position import (  # noqa: E402
 ANCHOR_Y = 0.9
 CONF = 0.5
 PRIOR_WEIGHTS = [1.0, 3.0, 10.0, 30.0, 100.0]
+CROP_SIZE = 640
 CORNER_IMAGES = ROOT / "build/corners/images"
 # A square far outside any photo: every piece lands off the board, so the image scores as a miss.
 FAR_AWAY = [[-2000.0, -2000.0], [-1000.0, -2000.0], [-1000.0, -1000.0], [-2000.0, -1000.0]]
@@ -67,6 +74,48 @@ def detect_corners(model: YOLO, split: str, items: list, cache_file: Path) -> di
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_text(json.dumps(cache))
     return {int(k): v for k, v in cache.items()}
+
+
+def second_stage(model: YOLO, items: list, screen: dict[int, list], cache_file: Path) -> dict:
+    """Move each first-stage corner set using a crop of the full-size photo around it."""
+    cache: dict[str, list] = {}
+    if cache_file.is_file():
+        cache = json.loads(cache_file.read_text())
+    for image_id, path, _, _ in items:
+        if str(image_id) in cache:
+            continue
+        pts = screen.get(image_id)
+        if not pts:
+            cache[str(image_id)] = []
+            continue
+        left, top, side = crop_square(pts)
+        with Image.open(path) as img:
+            crop = img.convert("RGB").crop(
+                (round(left), round(top), round(left) + round(side), round(top) + round(side))
+            )
+        box = (round(left), round(top), crop.width)
+        crop = crop.resize((CROP_SIZE, CROP_SIZE), Image.LANCZOS)
+        result = model.predict(crop, imgsz=CROP_SIZE, verbose=False, device="cpu")[0]
+        if result.keypoints is None or len(result.boxes) == 0:
+            cache[str(image_id)] = pts  # keep the first stage's answer
+            continue
+        best = int(result.boxes.conf.argmax())
+        cache[str(image_id)] = from_crop(result.keypoints.xy[best].tolist(), box, CROP_SIZE)
+    cache_file.write_text(json.dumps(cache))
+    return {int(k): v for k, v in cache.items()}
+
+
+def raw_error_pct(items: list, screen: dict[int, list]) -> float:
+    """Mean corner error of the detector's own output, % of board side, missed boards excluded."""
+    errs = []
+    for image_id, _, truth, _ in items:
+        pts = screen.get(image_id)
+        if not pts:
+            continue
+        gt = screen_order(truth)
+        side = sum(math.dist(gt[i], gt[(i + 1) % 4]) for i in range(4)) / 4
+        errs += [100 * math.dist(p, t) / side for p, t in zip(pts, gt, strict=True)]
+    return round(sum(errs) / len(errs), 3)
 
 
 def _original_side(path: Path) -> int:
@@ -162,11 +211,15 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", type=Path, required=True)
     ap.add_argument("--weights", type=Path, required=True)
+    ap.add_argument("--stage2", type=Path, help="weights of the crop model (second stage)")
     ap.add_argument("--out", type=Path, default=ROOT / "reports/pipeline_eval.csv")
     args = ap.parse_args()
 
     model = YOLO(str(args.weights))
-    tag = args.weights.parent.parent.name
+    tag = tag0 = args.weights.parent.parent.name
+    model2 = YOLO(str(args.stage2)) if args.stage2 else None
+    if model2:
+        tag += "+" + args.stage2.parent.parent.name
     split_data = {}
     for split in ("val", "test"):
         items = list(load_ground_truth(args.data, split))
@@ -177,7 +230,13 @@ def main() -> None:
             ).items()
         }
         cache = ROOT / f"build/corner_eval/{tag}_{split}.json"
-        split_data[split] = (items, detections, detect_corners(model, split, items, cache))
+
+        screen = detect_corners(
+            model, split, items, ROOT / f"build/corner_eval/{tag0}_{split}.json"
+        )
+        if model2:
+            screen = second_stage(model2, items, screen, cache)
+        split_data[split] = (items, detections, screen)
 
     def variants(split: str) -> dict[str, dict]:
         items, detections, screen = split_data[split]
@@ -193,6 +252,8 @@ def main() -> None:
         for w in PRIOR_WEIGHTS:
             name = f"detected, refine, then orientation from pieces + checkerboard (prior {w:g})"
             out[name] = evaluate(items, detections, build(items, detections, screen, w, True))
+        for m in out.values():
+            m["detector_mean_error_pct"] = raw_error_pct(items, screen)
         return out
 
     val = variants("val")
@@ -221,7 +282,7 @@ def main() -> None:
         with args.out.open(newline="") as f:
             rows = [r for r in csv.DictReader(f) if r["weights"] != tag] + rows
     with args.out.open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w = csv.DictWriter(f, fieldnames=list(dict.fromkeys(k for r in rows for k in r)))
         w.writeheader()
         w.writerows(rows)
     print("wrote", args.out)

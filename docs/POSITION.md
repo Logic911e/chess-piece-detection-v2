@@ -134,6 +134,26 @@ How to read this:
   cameras. Photos of other boards and phones have not been tested, so how well it works on
   a new phone is unknown.
 
+### Two attempts to find the corners more precisely that did not help
+
+Both were scored the same way as the nano model (tuned on validation, then scored on test).
+
+| Corner finder | Mean corner error, test (% of board side) | Whole position exact, val | Whole position exact, test |
+|---|---|---|---|
+| Nano pose model (used) | 4.22 | 72.42% | 86.60% |
+| Small pose model (yolov8s-pose) | 5.26 | 73.33% | 85.62% |
+| Nano model, then a second nano model on a crop around the board | 5.22 | 70.91% | 85.95% |
+
+The second stage cuts a square crop around the first stage's corners from the full-size photo,
+resizes it to 640 pixels and finds the corners again; it was trained on crops placed from the
+annotated corners with random shifts and rescaling, three per training photo. It made the raw
+corner error slightly worse, and the whole-position rates are within a point or two of the
+nano model in either direction on 330 and 306 photos, which is not a difference these sets can
+resolve. I did not find out why. Untested guesses: the annotated corners are themselves
+imprecise at this level, or the crop model needs more varied jitter than I gave it.
+`scripts/prepare_crop_data.py` and `--stage2` in `eval_pipeline.py` reproduce it. The service
+uses the single nano model.
+
 ### In the service
 
 `models/corners.pt` (not committed) switches this on. With it, `POST /position` without a

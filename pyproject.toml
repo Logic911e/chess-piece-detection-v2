@@ -20,6 +20,8 @@ include = [
     "scripts/prepare_corner_data.py",
     "scripts/eval_corners.py",
     "scripts/eval_pipeline.py",
+    "scripts/prepare_crop_data.py",
+    "src/crops.py",
 ]
 
 [tool.ruff.lint]
