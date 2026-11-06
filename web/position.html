@@ -206,7 +206,7 @@
             <button class="quiet" id="flip" type="button" title="Use this if White and Black are the wrong way round">Flip board</button>
           </div>
         </div>
-        <div class="engine">
+        <div class="engine" id="engine" hidden>
           <button class="quiet" id="runEngine" type="button">Run Stockfish</button>
           <div class="out" id="engineOut" role="status" aria-live="polite"></div>
         </div>
@@ -234,6 +234,7 @@
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // must match the API limit
 const SLOW_AFTER_MS = 4000;
 const REQUEST_TIMEOUT_MS = 90000;
+const FEW_PIECES = 10; // a judgement call, not a measured cut-off
 const FLIGHT_MS = 900;
 const FLAT = 480;                          // size of the straightened-photo canvas
 const SAMPLE_MAX = 1600;                   // longest side used when sampling the photo
@@ -250,7 +251,7 @@ const els = {
   loupe: $("loupe"), loupeCanvas: $("loupeCanvas"), read: $("read"), rotate: $("rotate"),
   reset: $("reset"), another: $("another"), placeholder: $("placeholder"), result: $("result"),
   board: $("board"), flat: $("flat"), diagram: $("diagram"), viewToggle: $("viewToggle"),
-  summary: $("summary"), warnings: $("warnings"), runEngine: $("runEngine"), engineOut: $("engineOut"), fen: $("fen"), copy: $("copy"), lichess: $("lichess"), adjust: $("adjust"), flip: $("flip"),
+  summary: $("summary"), warnings: $("warnings"), engine: $("engine"), runEngine: $("runEngine"), engineOut: $("engineOut"), fen: $("fen"), copy: $("copy"), lichess: $("lichess"), adjust: $("adjust"), flip: $("flip"),
   steps: { photo: $("step-photo"), corners: $("step-corners"), position: $("step-position") },
 };
 
@@ -283,7 +284,9 @@ async function checkHealth() {
   try {
     const r = await fetch(apiBase() + "/health", { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     if (!r.ok) throw new Error("HTTP " + r.status);
-    state.auto = Boolean((await r.json()).auto_corners);
+    const health = await r.json();
+    state.auto = Boolean(health.auto_corners);
+    els.engine.hidden = !health.engine;
     setStatus("online", true);
   } catch (_) { setStatus("unreachable", false); } finally { clearTimeout(slow); }
 }
@@ -753,6 +756,7 @@ function showResult(data, pts, found = false) {
   if (found) bits.unshift("Board found automatically");
   if (data.ignored_detections) bits.push(`${data.ignored_detections} detected but left out (outside the corners, or two on one square)`);
   els.summary.textContent = bits.join(", ") + ".";
+  if (data.pieces > 0 && data.pieces < FEW_PIECES) els.summary.textContent += " With few pieces left, the page cannot tell White from Black by their position, so check that White is at the bottom of the diagram and use Flip board if not.";
   els.engineOut.replaceChildren();
   els.warnings.replaceChildren();
   els.warnings.hidden = !data.warnings.length;

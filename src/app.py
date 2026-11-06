@@ -74,6 +74,7 @@ def health(request: Request):
         "status": "ok",
         "models": list(request.app.state.models),
         "auto_corners": request.app.state.corner_model is not None,
+        "engine": find_engine() is not None,
     }
 
 

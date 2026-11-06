@@ -133,7 +133,7 @@ Interactive docs are at `/docs` once the server is running.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /health` | `{"status": "ok", "models": ["synthetic", "finetuned"], "auto_corners": false}` (`auto_corners` is true when the corner model is loaded) |
+| `GET /health` | `{"status": "ok", "models": ["synthetic", "finetuned"], "auto_corners": false, "engine": false}` (`auto_corners` is true when the corner model is loaded, `engine` when Stockfish is found; the page hides "Run Stockfish" without one) |
 | `POST /predict` | Upload a JPEG or PNG (up to 5 MB). Query: `model` is `synthetic` or `finetuned` (default `finetuned`); `conf` is 0 to 1 (default 0.25) |
 | `POST /position` | Same upload plus an optional `corners` form field (JSON, pixels of the uploaded image: `bottom_left` is a1, `bottom_right` h1, `top_right` h8, `top_left` a8). Without it the server finds the board itself, or answers 503 if it has no corner model and 422 if it finds no board. Query: `model`, `conf` (default 0.5), `anchor_y` (default 0.9). Returns the squares, the FEN piece-placement field and the corners used (`corners_source` is `given` or `auto`) |
 | `POST /analyse` | JSON `{"fen": "...", "seconds": 1}`. Runs Stockfish and returns the evaluation (White's view), best move and main line. 503 if no engine is installed, 422 if the position is impossible |

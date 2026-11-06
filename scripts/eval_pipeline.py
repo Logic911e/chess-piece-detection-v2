@@ -217,6 +217,9 @@ def main() -> None:
         )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    if args.out.is_file():  # keep the rows of other weights, replace this run's own
+        with args.out.open(newline="") as f:
+            rows = [r for r in csv.DictReader(f) if r["weights"] != tag] + rows
     with args.out.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()

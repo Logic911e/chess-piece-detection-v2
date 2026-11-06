@@ -29,6 +29,7 @@ class HealthResponse(BaseModel):
     auto_corners: bool = Field(
         default=False, description="True if the server can find the board corners itself"
     )
+    engine: bool = Field(default=False, description="True if /analyse has a chess engine to use")
 
 
 class PositionResponse(BaseModel):

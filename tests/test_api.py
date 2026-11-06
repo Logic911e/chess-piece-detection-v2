@@ -68,10 +68,16 @@ def post(client, data: bytes, content_type="image/png", **params):
     return client.post("/predict", params=params, files={"file": ("x.png", data, content_type)})
 
 
-def test_health(client):
+def test_health(client, monkeypatch):
+    monkeypatch.setattr(app_module, "find_engine", lambda: None)
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "models": ["synthetic", "finetuned"], "auto_corners": False}
+    assert r.json() == {
+        "status": "ok",
+        "models": ["synthetic", "finetuned"],
+        "auto_corners": False,
+        "engine": False,
+    }
 
 
 @pytest.mark.parametrize("model", ["synthetic", "finetuned"])
@@ -200,6 +206,11 @@ def test_position_reports_the_corners_it_was_given(client, tiny_image):
     body = post_position(client, png_bytes(tiny_image), conf=0.1).json()
     assert body["corners_source"] == "given"
     assert body["corners"] == {k: [float(x), float(y)] for k, (x, y) in BOARD_CORNERS.items()}
+
+
+def test_health_says_when_an_engine_is_available(client, monkeypatch):
+    monkeypatch.setattr(app_module, "find_engine", lambda: "/fake/engine")
+    assert client.get("/health").json()["engine"] is True
 
 
 def test_health_says_when_corners_can_be_found(auto_client):
