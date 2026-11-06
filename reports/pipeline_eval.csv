@@ -17,3 +17,21 @@ corners-n-nomosaic,test,"detected, refine, then orientation from pieces + checke
 corners-n-nomosaic,test,"detected, refine, then orientation from pieces + checkerboard (prior 10)",0.9,0.5,306,0.9612,0.9495,0.9553,0.8693,0.8922,0.0,3.289,0.8824,0.0
 corners-n-nomosaic,test,"detected, refine, then orientation from pieces + checkerboard (prior 30)",0.9,0.5,306,0.959,0.9438,0.9513,0.8268,0.8595,0.0,4.301,0.8301,0.0
 corners-n-nomosaic,test,"detected, refine, then orientation from pieces + checkerboard (prior 100)",0.9,0.5,306,0.9455,0.9234,0.9343,0.7092,0.7516,0.0,4.976,0.719,0.0
+corners-s-nomosaic,val,annotated corners,0.9,0.5,330,0.9976,0.9971,0.9973,0.9424,1.0,0.0,0.0,0.9424,1.0
+corners-s-nomosaic,val,"detected, orientation from pieces",0.9,0.5,330,0.8598,0.835,0.8472,0.5152,0.5606,0.0,7.578,0.5455,0.0
+corners-s-nomosaic,val,"detected, orientation from pieces + checkerboard",0.9,0.5,330,0.8709,0.8457,0.8581,0.5697,0.6152,0.0,6.858,0.6636,0.0
+corners-s-nomosaic,val,"detected, orientation from pieces + refine (prior 10)",0.9,0.5,330,0.8816,0.8715,0.8765,0.6667,0.7091,0.0,4.162,0.7,0.0
+corners-s-nomosaic,val,"detected, refine, then orientation from pieces + checkerboard (prior 1)",0.9,0.5,330,0.901,0.8906,0.8958,0.7121,0.7515,0.0,3.603,0.8061,0.0
+corners-s-nomosaic,val,"detected, refine, then orientation from pieces + checkerboard (prior 3)",0.9,0.5,330,0.9051,0.8956,0.9003,0.7333,0.7758,0.0,3.264,0.8242,0.0
+corners-s-nomosaic,val,"detected, refine, then orientation from pieces + checkerboard (prior 10)",0.9,0.5,330,0.9061,0.8958,0.9009,0.7333,0.7758,0.0,4.025,0.8303,0.0
+corners-s-nomosaic,val,"detected, refine, then orientation from pieces + checkerboard (prior 30)",0.9,0.5,330,0.9001,0.885,0.8925,0.7061,0.7455,0.0,5.949,0.8,0.0
+corners-s-nomosaic,val,"detected, refine, then orientation from pieces + checkerboard (prior 100)",0.9,0.5,330,0.8748,0.8524,0.8635,0.6,0.6333,0.0,6.806,0.6939,0.0
+corners-s-nomosaic,test,annotated corners,0.9,0.5,306,0.9994,0.9975,0.9984,0.9673,0.9935,0.0,0.0,0.9673,1.0
+corners-s-nomosaic,test,"detected, orientation from pieces",0.9,0.5,306,0.9208,0.8959,0.9082,0.6275,0.6863,0.0,5.905,0.6275,0.0
+corners-s-nomosaic,test,"detected, orientation from pieces + checkerboard",0.9,0.5,306,0.9265,0.9015,0.9138,0.6569,0.7157,0.0,5.695,0.6667,0.0
+corners-s-nomosaic,test,"detected, orientation from pieces + refine (prior 10)",0.9,0.5,306,0.9362,0.9215,0.9288,0.8203,0.8399,0.0,3.58,0.8203,0.0
+corners-s-nomosaic,test,"detected, refine, then orientation from pieces + checkerboard (prior 1)",0.9,0.5,306,0.9428,0.9328,0.9378,0.8301,0.8497,0.0,3.465,0.8431,0.0
+corners-s-nomosaic,test,"detected, refine, then orientation from pieces + checkerboard (prior 3)",0.9,0.5,306,0.9478,0.9377,0.9427,0.8562,0.8758,0.0,3.169,0.8627,0.0
+corners-s-nomosaic,test,"detected, refine, then orientation from pieces + checkerboard (prior 10)",0.9,0.5,306,0.9462,0.9314,0.9387,0.8562,0.8758,0.0,3.535,0.8595,0.0
+corners-s-nomosaic,test,"detected, refine, then orientation from pieces + checkerboard (prior 30)",0.9,0.5,306,0.9457,0.9277,0.9366,0.8105,0.8399,0.0,5.093,0.8137,0.0
+corners-s-nomosaic,test,"detected, refine, then orientation from pieces + checkerboard (prior 100)",0.9,0.5,306,0.9308,0.9063,0.9184,0.683,0.7484,0.0,5.624,0.6895,0.0
