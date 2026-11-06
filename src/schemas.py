@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -24,6 +26,9 @@ class PredictResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     models: list[str]
+    auto_corners: bool = Field(
+        default=False, description="True if the server can find the board corners itself"
+    )
 
 
 class PositionResponse(BaseModel):
@@ -39,6 +44,12 @@ class PositionResponse(BaseModel):
         "move counters cannot be read from a photo.",
         examples=["8/8/8/4p3/4P3/8/8/8"],
     )
+    corners: dict[str, list[float]] = Field(
+        description="The corners used, in pixels of the uploaded image: bottom_left is a1, "
+        "bottom_right h1, top_right h8, top_left a8. When they were found automatically "
+        "this is where the board was placed, so a client can show them for adjusting."
+    )
+    corners_source: Literal["given", "auto"]
     pieces: int = Field(description="Number of pieces placed on the board")
     warnings: list[str] = Field(
         default_factory=list,

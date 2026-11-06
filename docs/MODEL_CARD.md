@@ -22,6 +22,13 @@ Where a number was never recorded it says TBD.
 Classes, in index order: white-pawn, white-knight, white-bishop, white-rook,
 white-queen, white-king, then the same six for black.
 
+**Corner detector (optional, `models/corners.pt`).** A third model finds the four board
+corners so a photo can be read without hand-placed corners. YOLOv8n-pose with one "board"
+class and four keypoints, trained on the same 1,442 ChessReD training photographs (their
+annotated corners), 40 epochs requested, mosaic augmentation off. Its method and results are in
+`docs/POSITION.md`. It is derived from ChessReD, so the licence notes below apply to it in the
+same way as to the fine-tuned weights, and it is not published either.
+
 ## Intended use
 
 - A portfolio and teaching demo of deploying a computer-vision model as a
@@ -151,6 +158,8 @@ These need a decision before anything is made public.
   settled in law**, and this card is not legal advice. The cautious reading is
   that the fine-tuned weights must follow CC BY-NC-SA terms: non-commercial,
   with attribution, and shared under the same licence if shared at all.
+- **The corner detector is derived from ChessReD too** (its annotated corners and photographs),
+  so the CC BY-NC-SA reading above applies to `corners.pt` as well.
 - **python-chess and Stockfish are GPL-3.0.** The service imports python-chess
   (GPL-3.0 or later) for legality checks and calls a separately installed Stockfish
   binary (GPL-3.0) for analysis. Stockfish is not part of this repository or the

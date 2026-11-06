@@ -22,3 +22,4 @@ requirements-dev.txt
 models/*
 !models/synthetic.pt
 !models/finetuned.pt
+!models/corners.pt

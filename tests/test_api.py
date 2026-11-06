@@ -10,7 +10,7 @@ import io
 import json
 
 import pytest
-from conftest import EXPECTED_STUB_DETECTION, StubModel
+from conftest import EXPECTED_STUB_DETECTION, StubCornerModel, StubModel
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -25,8 +25,37 @@ def client():
             "load_models",
             lambda _dir: {"synthetic": StubModel(), "finetuned": StubModel()},
         )
+        mp.setattr(app_module, "load_corner_model", lambda _dir: None)
         with TestClient(app_module.app) as c:  # `with` triggers the startup hook
             yield c
+
+
+# Where a corner detector would report the BOARD_CORNERS board: top-left, top-right,
+# bottom-right, bottom-left.
+SCREEN_CORNERS = [[20, 10], [260, 10], [260, 230], [20, 230]]
+
+
+def client_with_corner_model(corner_model):
+    """A client whose corner detector is the given stub."""
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(
+            app_module,
+            "load_models",
+            lambda _dir: {"synthetic": StubModel(), "finetuned": StubModel()},
+        )
+        mp.setattr(app_module, "load_corner_model", lambda _dir: corner_model)
+        with TestClient(app_module.app) as c:
+            yield c
+
+
+@pytest.fixture()
+def auto_client():
+    yield from client_with_corner_model(StubCornerModel(SCREEN_CORNERS))
+
+
+@pytest.fixture()
+def blind_client():
+    yield from client_with_corner_model(StubCornerModel(None))
 
 
 def png_bytes(image) -> bytes:
@@ -42,7 +71,7 @@ def post(client, data: bytes, content_type="image/png", **params):
 def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "models": ["synthetic", "finetuned"]}
+    assert r.json() == {"status": "ok", "models": ["synthetic", "finetuned"], "auto_corners": False}
 
 
 @pytest.mark.parametrize("model", ["synthetic", "finetuned"])
@@ -161,9 +190,41 @@ def test_position_rejects_bad_corners(client, tiny_image, corners):
     assert isinstance(r.json()["detail"], str)
 
 
-def test_position_requires_corners(client, tiny_image):
+def test_position_without_corners_needs_the_corner_model(client, tiny_image):
     r = client.post("/position", files={"file": ("x.png", png_bytes(tiny_image), "image/png")})
+    assert r.status_code == 503
+    assert "Send the corners" in r.json()["detail"]
+
+
+def test_position_reports_the_corners_it_was_given(client, tiny_image):
+    body = post_position(client, png_bytes(tiny_image), conf=0.1).json()
+    assert body["corners_source"] == "given"
+    assert body["corners"] == {k: [float(x), float(y)] for k, (x, y) in BOARD_CORNERS.items()}
+
+
+def test_health_says_when_corners_can_be_found(auto_client):
+    assert auto_client.get("/health").json()["auto_corners"] is True
+
+
+def test_position_finds_the_corners_itself(auto_client, tiny_image):
+    r = auto_client.post(
+        "/position",
+        params={"conf": 0.1},
+        files={"file": ("x.png", png_bytes(tiny_image), "image/png")},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["corners_source"] == "auto"
+    assert set(body["corners"]) == {"bottom_left", "bottom_right", "top_right", "top_left"}
+    assert body["pieces"] == 1  # the stub's queen lands on the board
+
+
+def test_position_with_no_board_found_asks_for_corners(blind_client, tiny_image):
+    r = blind_client.post(
+        "/position", files={"file": ("x.png", png_bytes(tiny_image), "image/png")}
+    )
     assert r.status_code == 422
+    assert "Mark the corners by hand" in r.json()["detail"]
 
 
 def test_position_rejects_wrong_file_type(client):

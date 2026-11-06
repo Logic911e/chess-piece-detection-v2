@@ -55,7 +55,8 @@ Cloud Run is documented in `docs/DEPLOY.md` and has not been done yet.
 ## Quickstart
 
 The model weights are **not in this repository** (see Credits and licences), so
-you need your own `models/synthetic.pt` and `models/finetuned.pt`. Training is
+you need your own `models/synthetic.pt` and `models/finetuned.pt` (and optionally
+`models/corners.pt`, the corner detector). Training is
 described in [`docs/TRAINING.md`](docs/TRAINING.md).
 
 **Local**
@@ -97,10 +98,13 @@ passed as `?api=https://...`.
 
 ## Photo to position
 
-`web/position.html` turns a photo of a board into a diagram and a FEN. You mark the
-four board corners on the photo (draggable handles, a projected 8x8 grid and a
-magnifier help), the API places each detected piece on its square, and the page draws
-a top-down board with a link to open it on Lichess. The photo's board can also be shown
+`web/position.html` turns a photo of a board into a diagram and a FEN. When the server has the
+optional corner model (`models/corners.pt`) it finds the board itself and the page puts the
+four corners on the photo for you to check; otherwise, or if the board is not found, you mark
+the four corners yourself (draggable handles, a projected 8x8 grid and a magnifier help). The
+API places each detected piece on its square, and the page draws a top-down board with a link
+to open it on Lichess. If White and Black come out the wrong way round, "Flip board" turns
+the board half a turn. The photo's board can also be shown
 straightened, which makes it easy to check the squares against the diagram.
 
 ![The position page: corners marked on the photo and the resulting top-down board](docs/position-demo.jpg)
@@ -119,10 +123,9 @@ How well it works, from `docs/POSITION.md`: with the annotated corners, the fine
 model gets the whole position exactly right in 96.73% of the 306 test photographs
 (three games, so likely optimistic). Accuracy falls quickly once the corners are off by
 more than about 1% of the board's side, and by hand the corners were often a little off
-(not measured). A corner detector plus a refinement step gets the whole position exactly
+(not measured). The corner detector plus a refinement step gets the whole position exactly
 right in 86.60% of the test photographs without any hand-placed corners (72.42% on the
-validation split), described in `docs/POSITION.md`. It is evaluated but not yet in the API
-or the page, so the page still asks for corners. Only piece placement is read.
+validation split), described in `docs/POSITION.md`. Only piece placement is read.
 
 ## API
 
@@ -130,9 +133,9 @@ Interactive docs are at `/docs` once the server is running.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /health` | `{"status": "ok", "models": ["synthetic", "finetuned"]}` |
+| `GET /health` | `{"status": "ok", "models": ["synthetic", "finetuned"], "auto_corners": false}` (`auto_corners` is true when the corner model is loaded) |
 | `POST /predict` | Upload a JPEG or PNG (up to 5 MB). Query: `model` is `synthetic` or `finetuned` (default `finetuned`); `conf` is 0 to 1 (default 0.25) |
-| `POST /position` | Same upload plus a `corners` form field (JSON, pixels of the uploaded image: `bottom_left` is a1, `bottom_right` h1, `top_right` h8, `top_left` a8). Query: `model`, `conf` (default 0.5), `anchor_y` (default 0.9). Returns the squares and the FEN piece-placement field |
+| `POST /position` | Same upload plus an optional `corners` form field (JSON, pixels of the uploaded image: `bottom_left` is a1, `bottom_right` h1, `top_right` h8, `top_left` a8). Without it the server finds the board itself, or answers 503 if it has no corner model and 422 if it finds no board. Query: `model`, `conf` (default 0.5), `anchor_y` (default 0.9). Returns the squares, the FEN piece-placement field and the corners used (`corners_source` is `given` or `auto`) |
 | `POST /analyse` | JSON `{"fen": "...", "seconds": 1}`. Runs Stockfish and returns the evaluation (White's view), best move and main line. 503 if no engine is installed, 422 if the position is impossible |
 
 ```bash
@@ -214,9 +217,10 @@ amd64, so it must be built for that platform.
   and each handset photographed one game, so camera and game cannot be separated.
 - **The synthetic model is under-trained.** It ran 8 of 50 planned epochs, so the
   79.8% drop may be a little overstated.
-- **Corners are marked by hand in the app.** A corner detector exists and is evaluated
-  (`docs/POSITION.md`), but is not wired into the API or page yet. The main position
-  accuracy assumes exact corners and falls quickly as they get less precise.
+- **Automatic corners are right about 87% of the time on the test photographs** (72% on
+  validation), not every time, so the page shows the corners for you to check. The corner model
+  has only seen ChessReD's boards and cameras, and photos from your own phone and board have
+  not been measured. Position accuracy falls quickly as the corners get less precise.
 - **Untested conditions.** Lighting, angle and chess sets outside ChessReD have
   not been tested.
 - **Fine-tuning points from 100 photographs up are single runs.**

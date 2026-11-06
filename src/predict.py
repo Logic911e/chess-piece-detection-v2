@@ -18,6 +18,10 @@ MODEL_FILES = {
 }
 
 
+# Optional: finds the four board corners so a photo can be read without hand-placed corners.
+CORNER_MODEL_FILE = "corners.pt"
+
+
 def load_models(models_dir: Path) -> dict:
     """Load every model once, at startup. Loading per request would add
     seconds to each call."""
@@ -32,6 +36,28 @@ def load_models(models_dir: Path) -> dict:
             raise FileNotFoundError(f"Missing weights for '{name}': {path}")
         models[name] = YOLO(str(path))
     return models
+
+
+def load_corner_model(models_dir: Path):
+    """The corner detector, or None when its weights are not there (the service then
+    needs the corners from the client)."""
+    path = Path(models_dir) / CORNER_MODEL_FILE
+    if not path.is_file():
+        return None
+    from ultralytics import YOLO
+
+    return YOLO(str(path))
+
+
+def detect_board_corners(model, image: Image.Image) -> list[list[float]] | None:
+    """Four corners of the most confident board, as [x, y] pixels of the image in screen
+    order (top-left, top-right, bottom-right, bottom-left), or None if no board is found."""
+    result = model.predict(image, imgsz=640, device="cpu", verbose=False)[0]
+    confidences = result.boxes.conf.tolist()
+    if not confidences or result.keypoints is None:
+        return None
+    best = max(range(len(confidences)), key=confidences.__getitem__)
+    return [[round(float(x), 1), round(float(y), 1)] for x, y in result.keypoints.xy.tolist()[best]]
 
 
 def predict(models: dict, name: str, image: Image.Image, conf: float = 0.25) -> dict:

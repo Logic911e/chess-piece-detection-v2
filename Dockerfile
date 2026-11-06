@@ -23,7 +23,7 @@ RUN pip install -r requirements-api.txt \
 COPY src/ ./src/
 # The demo pages, served by the API at /app/.
 COPY web/ ./web/
-# .dockerignore lets only synthetic.pt and finetuned.pt through from models/.
+# .dockerignore lets only synthetic.pt, finetuned.pt and (optional) corners.pt through.
 # The weights are gitignored, so this only works when building from a checkout
 # that has them (locally or with Cloud Build). CI creates an empty models/ and
 # builds anyway; such an image builds fine but the app will not start.

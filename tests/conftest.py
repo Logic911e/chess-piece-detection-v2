@@ -48,6 +48,35 @@ class StubModel:
         return [_Result()]
 
 
+class _Keypoints:
+    def __init__(self, xy):
+        self.xy = _Tensor(xy)
+
+
+class _CornerBoxes:
+    def __init__(self, confidences):
+        self.conf = _Tensor(confidences)
+
+
+class _CornerResult:
+    def __init__(self, confidences, xy):
+        self.boxes = _CornerBoxes(confidences)
+        self.keypoints = _Keypoints(xy)
+
+
+class StubCornerModel:
+    """Stands in for the corner detector: reports one board with the given corners, or no
+    board at all when `corners` is None. Corners are in screen order (TL, TR, BR, BL)."""
+
+    def __init__(self, corners=None):
+        self.corners = corners
+
+    def predict(self, image, **kwargs):
+        if self.corners is None:
+            return [_CornerResult([], [])]
+        return [_CornerResult([0.93], [self.corners])]
+
+
 EXPECTED_STUB_DETECTION = {
     "class_name": "white-queen",
     "confidence": 0.9123,

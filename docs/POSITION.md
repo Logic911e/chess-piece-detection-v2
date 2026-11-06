@@ -134,6 +134,18 @@ How to read this:
   cameras. Photos of other boards and phones have not been tested, so how well it works on
   a new phone is unknown.
 
+### In the service
+
+`models/corners.pt` (not committed) switches this on. With it, `POST /position` without a
+`corners` field runs the piece detector, the corner detector, `locate_board` (refine, then name
+a1) and returns the corners it used next to the squares, and `GET /health` reports
+`auto_corners: true`. `web/position.html` calls it as soon as a photo is chosen, places the
+four handles from the answer for you to check, and has a "Flip board" button for the half-turn
+mistakes described above. Without the weights, or if no board is found, the server says so and the page
+falls back to hand-placed corners. As a check on the wiring, 51 test photographs (every sixth)
+sent through the real API with no corners gave 44 exact positions (86.3%), in line with the table
+(a small sample, run while training was using the same machine, so no timing is quoted).
+
 ## How far to trust this
 
 - **Three games.** The 306 test photographs come from three games, with many

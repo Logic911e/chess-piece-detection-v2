@@ -8,6 +8,7 @@ Run locally:  uvicorn app:app --app-dir src --port 8080
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -15,6 +16,8 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import chess.engine
+import cv2
+import numpy as np
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -22,8 +25,8 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps
 
 from analysis import analyse, fen_problems, find_engine, placement_problems
-from position import detections_to_position, fen_placement, parse_corners
-from predict import load_models, predict
+from position import detections_to_position, fen_placement, locate_board, parse_corners
+from predict import detect_board_corners, load_corner_model, load_models, predict
 from schemas import (
     AnalyseRequest,
     AnalyseResponse,
@@ -48,6 +51,7 @@ CORS_ORIGINS = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 async def lifespan(app: FastAPI):
     # Load once at startup, not per request. On Cloud Run this is the cold start.
     app.state.models = load_models(MODELS_DIR)
+    app.state.corner_model = load_corner_model(MODELS_DIR)
     yield
 
 
@@ -66,7 +70,11 @@ async def unhandled_error(request: Request, exc: Exception):
 
 @app.get("/health", response_model=HealthResponse)
 def health(request: Request):
-    return {"status": "ok", "models": list(request.app.state.models)}
+    return {
+        "status": "ok",
+        "models": list(request.app.state.models),
+        "auto_corners": request.app.state.corner_model is not None,
+    }
 
 
 def read_upload(file: UploadFile) -> Image.Image:
@@ -90,6 +98,28 @@ def read_upload(file: UploadFile) -> Image.Image:
         raise HTTPException(400, "Could not read the file as an image") from None
 
 
+def find_board_corners(
+    request: Request, image: Image.Image, detections: list[dict], conf: float, anchor_y: float
+) -> dict[str, list[float]]:
+    """Corners for a photo sent without any: detect, refine against the pieces, name a1."""
+    corner_model = request.app.state.corner_model
+    if corner_model is None:
+        raise HTTPException(
+            503, "Automatic corner detection is not installed on this server. Send the corners."
+        )
+    screen = detect_board_corners(corner_model, image)
+    if screen is None:
+        raise HTTPException(422, "No board found in the photo. Mark the corners by hand.")
+    gray = np.asarray(image.convert("L"))
+    try:
+        named = locate_board(screen, detections, gray, anchor_y, conf)
+        return parse_corners(json.dumps(named))
+    except (ValueError, np.linalg.LinAlgError, cv2.error):
+        raise HTTPException(
+            422, "Could not place the board automatically. Mark the corners by hand."
+        ) from None
+
+
 # A plain `def` endpoint runs in a worker thread, so CPU-heavy inference
 # does not block the event loop.
 @app.post("/predict", response_model=PredictResponse)
@@ -108,33 +138,42 @@ def position_endpoint(
     request: Request,
     file: Annotated[UploadFile, File(description="JPEG or PNG, up to 5 MB")],
     corners: Annotated[
-        str,
+        str | None,
         Form(
             description="JSON with the board corners in pixels of the uploaded image, "
             'for example {"bottom_left": [x, y], "bottom_right": [x, y], '
             '"top_right": [x, y], "top_left": [x, y]}. bottom_left is the a1 corner, '
-            "bottom_right h1, top_right h8 and top_left a8."
+            "bottom_right h1, top_right h8 and top_left a8. Leave it out to have the "
+            "server find the board (needs the corner model, otherwise 503)."
         ),
-    ],
+    ] = None,
     model: Annotated[Literal["synthetic", "finetuned"], Query()] = "finetuned",
     conf: Annotated[float, Query(ge=0.0, le=1.0, description="Minimum confidence")] = 0.5,
     anchor_y: Annotated[
         float, Query(ge=0.5, le=1.0, description="Where on a box the piece stands")
     ] = 0.9,
 ):
-    try:
-        board_corners = parse_corners(corners)
-    except ValueError as err:
-        raise HTTPException(422, str(err)) from None
+    board_corners = None
+    if corners is not None:
+        try:
+            board_corners = parse_corners(corners)
+        except ValueError as err:
+            raise HTTPException(422, str(err)) from None
 
     image = read_upload(file)
     result = predict(request.app.state.models, model, image, conf)
+    source = "given"
+    if board_corners is None:
+        board_corners = find_board_corners(request, image, result["detections"], conf, anchor_y)
+        source = "auto"
     squares = detections_to_position(result["detections"], board_corners, anchor_y)
     placement = fen_placement(squares)
     return {
         "model": model,
         "image_width": result["image_width"],
         "image_height": result["image_height"],
+        "corners": {name: [round(v, 1) for v in xy] for name, xy in board_corners.items()},
+        "corners_source": source,
         "squares": squares,
         "fen_placement": placement,
         "pieces": len(squares),

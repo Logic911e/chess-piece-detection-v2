@@ -67,7 +67,8 @@ real limits on cost are the instance cap and the teardown in section 7.
 ## 4. Build and push the image
 
 Run this from the repo root, on a checkout that has `models/synthetic.pt` and
-`models/finetuned.pt`:
+`models/finetuned.pt` (and `models/corners.pt` if you want the page to find the board itself;
+without it the page asks for the corners):
 
 ```bash
 gcloud builds submit --tag "$IMAGE" .

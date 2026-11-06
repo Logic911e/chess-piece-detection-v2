@@ -140,7 +140,7 @@
   </header>
 
   <h1>Photograph a board. Get the position.</h1>
-  <p class="lead">Mark the four corners of the board on your photo. The detector places every piece on its square and gives you a diagram and a FEN to open in an analysis board.</p>
+  <p class="lead">Choose a photo of a board. The page finds the board, places every piece on its square and gives you a diagram and a FEN to open in an analysis board. If the board is not found, or the result looks off, you can place the four corners yourself.</p>
 
   <nav class="steps" aria-label="Progress">
     <button type="button" id="step-photo">Photo</button>
@@ -179,7 +179,7 @@
         <ul>
           <li>Keep all four corners of the board in the photo.</li>
           <li>Shoot from one side of the board and from as high as you comfortably can. A higher angle hides fewer pieces behind others.</li>
-          <li>The result is only as good as the corners: placing them a little off the true corners moves pieces onto the wrong squares.</li>
+          <li>The result is only as good as the corners. When the page finds them itself, check the yellow grid against the board and drag any corner that is off. A corner a little off the true one moves pieces onto the wrong squares.</li>
         </ul>
       </div>
 
@@ -203,6 +203,7 @@
             <button class="primary" id="copy" type="button">Copy FEN</button>
             <a class="primary" id="lichess" href="#" target="_blank" rel="noopener noreferrer">Analyse on Lichess</a>
             <button class="quiet" id="adjust" type="button">Adjust corners</button>
+            <button class="quiet" id="flip" type="button" title="Use this if White and Black are the wrong way round">Flip board</button>
           </div>
         </div>
         <div class="engine">
@@ -249,7 +250,7 @@ const els = {
   loupe: $("loupe"), loupeCanvas: $("loupeCanvas"), read: $("read"), rotate: $("rotate"),
   reset: $("reset"), another: $("another"), placeholder: $("placeholder"), result: $("result"),
   board: $("board"), flat: $("flat"), diagram: $("diagram"), viewToggle: $("viewToggle"),
-  summary: $("summary"), warnings: $("warnings"), runEngine: $("runEngine"), engineOut: $("engineOut"), fen: $("fen"), copy: $("copy"), lichess: $("lichess"), adjust: $("adjust"),
+  summary: $("summary"), warnings: $("warnings"), runEngine: $("runEngine"), engineOut: $("engineOut"), fen: $("fen"), copy: $("copy"), lichess: $("lichess"), adjust: $("adjust"), flip: $("flip"),
   steps: { photo: $("step-photo"), corners: $("step-corners"), position: $("step-position") },
 };
 
@@ -259,6 +260,7 @@ const state = {
   labelShift: 0,         // how far the labels are turned from the default
   placement: "", squares: {}, quadForFlight: null,
   stage: "photo", reached: 0, flight: 0,
+  auto: false,           // the server can find the board corners itself
 };
 
 // Served by the API itself (at /app/), the page and the API share one address.
@@ -281,6 +283,7 @@ async function checkHealth() {
   try {
     const r = await fetch(apiBase() + "/health", { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     if (!r.ok) throw new Error("HTTP " + r.status);
+    state.auto = Boolean((await r.json()).auto_corners);
     setStatus("online", true);
   } catch (_) { setStatus("unreachable", false); } finally { clearTimeout(slow); }
 }
@@ -335,6 +338,7 @@ async function loadFile(file) {
     goTo("corners");
     els.result.hidden = true;
     if (shrunk) notice("warn", "The photo was over 5 MB, so it was shrunk in your browser before sending.");
+    if (state.auto) readPosition(true);
   } catch (e) {
     notice("err", "Could not open that image. Choose a JPEG or PNG photo.");
   }
@@ -527,17 +531,35 @@ function nudge(e, i) {
 
 /* ---------- calling the API ---------- */
 
-async function readPosition() {
+// Put the four handles where the server found the corners. `named` maps bottom_left (a1),
+// bottom_right (h1), top_right (h8) and top_left (a8) to image pixels, but the handles sit in
+// screen order, so find the screen-top-left one and turn the labels to match.
+function placeFoundCorners(named) {
+  const pts = CORNER_KEYS.map((k) => named[k]);
+  const cx = pts.reduce((sum, p) => sum + p[0], 0) / 4, cy = pts.reduce((sum, p) => sum + p[1], 0) / 4;
+  const ring = pts.map((p, i) => ({ p, i, angle: Math.atan2(p[1] - cy, p[0] - cx) })).sort((u, v) => u.angle - v.angle);
+  let first = 0;
+  ring.forEach((k, j) => { if (k.p[0] + k.p[1] < ring[first].p[0] + ring[first].p[1]) first = j; });
+  const screen = ring.slice(first).concat(ring.slice(0, first));       // top-left, top-right, bottom-right, bottom-left
+  state.points = screen.map((k) => k.p.slice());
+  state.labelShift = (screen[0].i - LABELS.indexOf(DEFAULT_LABEL_AT[0]) + 4) % 4;
+  buildHandles();
+  renderOverlay();
+}
+
+async function readPosition(auto = false) {
   els.read.disabled = true;
-  notice("", "");
+  notice(auto ? "warn" : "", auto ? "Finding the board" : "");
   const slow = setTimeout(() => notice("warn",
     "Waiting for the server. If it has been idle, the first request can take up to a minute while the models load."), SLOW_AFTER_MS);
   try {
-    const pts = cornersInOrder();
-    const corners = Object.fromEntries(CORNER_KEYS.map((k, i) => [k, pts[i].map((v) => Math.round(v * 10) / 10)]));
     const form = new FormData();
     form.append("file", state.blob, "board.jpg");
-    form.append("corners", JSON.stringify(corners));
+    if (!auto) {
+      const pts = cornersInOrder();
+      const corners = Object.fromEntries(CORNER_KEYS.map((k, i) => [k, pts[i].map((v) => Math.round(v * 10) / 10)]));
+      form.append("corners", JSON.stringify(corners));
+    }
     const r = await fetch(`${apiBase()}/position?model=${els.model.value}`, {
       method: "POST", body: form, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     if (!r.ok) {
@@ -548,18 +570,27 @@ async function readPosition() {
     const data = await r.json();
     setStatus("online", true);
     notice("", "");
-    showResult(data, pts);
+    if (auto) placeFoundCorners(data.corners);
+    showResult(data, cornersInOrder(), auto);
   } catch (e) {
     const timedOut = e.name === "TimeoutError", network = e instanceof TypeError;
-    notice("err", timedOut ? "The server took too long to answer. Try again in a moment."
+    notice(auto && !timedOut && !network ? "warn" : "err", timedOut ? "The server took too long to answer. Try again in a moment."
       : network ? "Could not reach the API. Check the address under Connection and model, and that the server is running."
+      : auto ? e.message + " Then choose Read position."
       : e.message);
   } finally {
     clearTimeout(slow);
     els.read.disabled = false;
   }
 }
-els.read.addEventListener("click", readPosition);
+els.read.addEventListener("click", () => readPosition(false));
+// White and Black the wrong way round means a1 is on the opposite corner: turn the labels half a turn.
+els.flip.addEventListener("click", () => {
+  state.labelShift = (state.labelShift + 2) % 4;
+  refreshHandleLabels();
+  renderOverlay();
+  readPosition(false);
+});
 els.adjust.addEventListener("click", () => goTo("corners"));
 
 async function runEngine() {
@@ -713,12 +744,13 @@ function flatten(pts) {
   requestAnimationFrame(frame);
 }
 
-function showResult(data, pts) {
+function showResult(data, pts, found = false) {
   state.squares = data.squares;
   state.placement = data.fen_placement;
   buildDiagram(data.squares);
   updateFen();
   const bits = [`${data.pieces} ${data.pieces === 1 ? "piece" : "pieces"} placed`];
+  if (found) bits.unshift("Board found automatically");
   if (data.ignored_detections) bits.push(`${data.ignored_detections} detected but left out (outside the corners, or two on one square)`);
   els.summary.textContent = bits.join(", ") + ".";
   els.engineOut.replaceChildren();
@@ -726,7 +758,7 @@ function showResult(data, pts) {
   els.warnings.hidden = !data.warnings.length;
   if (data.warnings.length) {
     const lead = document.createElement("p");
-    lead.textContent = "This is not a position that can occur in a game, so something was probably misread. Check that the corners sit on the board's corners.";
+    lead.textContent = "This is not a position that can occur in a game, so something was probably misread. Check that the corners sit on the board's corners, and use Flip board if White and Black are the wrong way round.";
     const list = document.createElement("ul");
     data.warnings.forEach((w) => { const li = document.createElement("li"); li.textContent = w; list.append(li); });
     els.warnings.append(lead, list);
