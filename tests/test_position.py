@@ -9,11 +9,16 @@ import numpy as np
 import pytest
 
 from position import (
+    CORNER_ORDER,
     board_homography,
     detections_to_position,
     fen_placement,
     image_to_board,
+    locate_board,
+    orient_corners,
     parse_corners,
+    refine_corners,
+    square_contrast,
     square_name,
 )
 
@@ -168,3 +173,96 @@ def test_parse_corners_rejects_a_flat_shape():
     flat = {k: [float(i * 100), 50.0] for i, k in enumerate(CORNERS)}
     with pytest.raises(ValueError, match="do not form a board shape"):
         parse_corners(json.dumps(flat))
+
+
+def opening_detections() -> list[dict]:
+    """Both sides' pieces on their starting ranks, each box ending at its square centre."""
+    out = []
+    for file_index in range(8):
+        for rank_index, colour in ((0, "white"), (1, "white"), (6, "black"), (7, "black")):
+            out.append(det(f"{colour}-pawn", square_centre_in_image(file_index, rank_index)))
+    return out
+
+
+def checkerboard_image() -> np.ndarray:
+    """A grayscale photo of the board in CORNERS: a1 dark, 100 px per square before warping."""
+    top_down = np.zeros((800, 800), dtype=np.uint8)
+    for file_index in range(8):
+        for rank_index in range(8):
+            shade = 40 if (file_index + rank_index) % 2 == 0 else 220
+            top_down[
+                rank_index * 100 : (rank_index + 1) * 100, file_index * 100 : (file_index + 1) * 100
+            ] = shade
+    to_image = cv2.getPerspectiveTransform(
+        np.array([[0, 0], [800, 0], [800, 800], [0, 800]], dtype=np.float32),
+        np.array([CORNERS[name] for name in CORNER_ORDER], dtype=np.float32),
+    )
+    return cv2.warpPerspective(top_down, to_image, (1100, 1000), flags=cv2.INTER_NEAREST)
+
+
+def screen_order(shift: int) -> list[list[float]]:
+    """CORNERS as top-left, top-right, bottom-right, bottom-left, cyclically shifted, as a
+    detector that cannot tell which corner is which might report them."""
+    ring = [
+        CORNERS["top_left"],
+        CORNERS["top_right"],
+        CORNERS["bottom_right"],
+        CORNERS["bottom_left"],
+    ]
+    return ring[shift:] + ring[:shift]
+
+
+def max_corner_error(found: dict, expected: dict = CORNERS) -> float:
+    return max(float(np.hypot(*np.subtract(found[n], expected[n]))) for n in CORNER_ORDER)
+
+
+@pytest.mark.parametrize("shift", [0, 1, 2, 3])
+def test_pieces_name_the_corners_whatever_the_starting_corner(shift):
+    corners = orient_corners(screen_order(shift), opening_detections(), anchor_y=1.0)
+    assert max_corner_error(corners) < 1e-3
+
+
+def test_checkerboard_is_light_minus_dark_when_a1_is_dark():
+    gray = checkerboard_image()
+    assert square_contrast(gray, CORNERS, set()) > 100
+    turned = {name: CORNERS[CORNER_ORDER[(i + 1) % 4]] for i, name in enumerate(CORNER_ORDER)}
+    assert square_contrast(gray, turned, set()) < -100
+
+
+def test_checkerboard_separates_quarter_turns_when_pieces_cannot():
+    # One lone white pawn on rank 1 gives the pieces no way to tell the sides apart.
+    lone = [det("white-pawn", square_centre_in_image(3, 0))]
+    gray = checkerboard_image()
+    for shift in range(4):
+        found = orient_corners(screen_order(shift), lone, anchor_y=1.0, gray=gray)
+        # Right up to a half turn, which only the pieces can settle.
+        half_turn = {n: CORNERS[CORNER_ORDER[(i + 2) % 4]] for i, n in enumerate(CORNER_ORDER)}
+        assert min(max_corner_error(found), max_corner_error(found, half_turn)) < 1e-3
+
+
+def test_refine_pulls_misplaced_corners_back():
+    nudged = {
+        "bottom_left": [CORNERS["bottom_left"][0] + 22, CORNERS["bottom_left"][1] - 18],
+        "bottom_right": [CORNERS["bottom_right"][0] - 20, CORNERS["bottom_right"][1] + 15],
+        "top_right": [CORNERS["top_right"][0] + 15, CORNERS["top_right"][1] + 20],
+        "top_left": [CORNERS["top_left"][0] - 18, CORNERS["top_left"][1] - 16],
+    }
+    refined = refine_corners(nudged, opening_detections(), anchor_y=1.0, prior_weight=1.0)
+    assert max_corner_error(refined) < 0.4 * max_corner_error(nudged)
+
+
+def test_refine_leaves_corners_alone_with_too_few_pieces():
+    few = [det("white-pawn", square_centre_in_image(0, 0))]
+    assert refine_corners(CORNERS, few, anchor_y=1.0) == CORNERS
+
+
+def test_locate_board_names_and_refines_detected_corners():
+    ring = screen_order(0)
+    detected = [
+        [x + dx, y + dy]
+        for (x, y), (dx, dy) in zip(ring, [(14, 12), (-12, 16), (15, -13), (-16, -14)], strict=True)
+    ]
+    found = locate_board(
+        detected, opening_detections(), checkerboard_image(), anchor_y=1.0, prior_weight=1.0
+    )
+    assert max_corner_error(found) < 12

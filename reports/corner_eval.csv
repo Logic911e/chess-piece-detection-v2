@@ -1,0 +1,3 @@
+weights,split,images,detected,mean_error_pct,median_worst_corner_pct,p90_worst_corner_pct,all_corners_within_0.5pct,all_corners_within_1.0pct,all_corners_within_2.0pct,all_corners_within_3.0pct,all_corners_within_6.0pct
+corners-n,test,306,306,19.768,15.75,86.237,0.0,0.0,0.0,0.0,0.0065
+corners-n-nomosaic,test,306,306,4.222,5.003,9.633,0.0,0.0,0.0131,0.1046,0.6438

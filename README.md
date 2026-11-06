@@ -118,8 +118,11 @@ works. The Docker image does not contain an engine.
 How well it works, from `docs/POSITION.md`: with the annotated corners, the fine-tuned
 model gets the whole position exactly right in 96.73% of the 306 test photographs
 (three games, so likely optimistic). Accuracy falls quickly once the corners are off by
-more than about 1% of the board's side, and corners marked by hand have not been
-measured. The board is not found automatically, and only piece placement is read.
+more than about 1% of the board's side, and by hand the corners were often a little off
+(not measured). A corner detector plus a refinement step gets the whole position exactly
+right in 86.60% of the test photographs without any hand-placed corners (72.42% on the
+validation split), described in `docs/POSITION.md`. It is evaluated but not yet in the API
+or the page, so the page still asks for corners. Only piece placement is read.
 
 ## API
 
@@ -211,9 +214,9 @@ amd64, so it must be built for that platform.
   and each handset photographed one game, so camera and game cannot be separated.
 - **The synthetic model is under-trained.** It ran 8 of 50 planned epochs, so the
   79.8% drop may be a little overstated.
-- **Corners are marked by hand.** The board is not found automatically. The
-  position accuracy in `docs/POSITION.md` assumes exact corners and falls quickly as
-  they get less precise.
+- **Corners are marked by hand in the app.** A corner detector exists and is evaluated
+  (`docs/POSITION.md`), but is not wired into the API or page yet. The main position
+  accuracy assumes exact corners and falls quickly as they get less precise.
 - **Untested conditions.** Lighting, angle and chess sets outside ChessReD have
   not been tested.
 - **Fine-tuning points from 100 photographs up are single runs.**

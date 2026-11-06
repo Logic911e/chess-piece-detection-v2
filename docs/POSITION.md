@@ -1,7 +1,8 @@
 # From photo to position: first evaluation
 
-Everything here comes from `reports/position_eval.csv`, written by
-`scripts/eval_position.py`. The method is in `src/position.py`.
+Everything here comes from `reports/position_eval.csv`, `reports/corner_eval.csv` and
+`reports/pipeline_eval.csv`, written by `scripts/eval_position.py`, `scripts/eval_corners.py`
+and `scripts/eval_pipeline.py`. The method is in `src/position.py`.
 
 ## Method
 
@@ -19,8 +20,9 @@ confidence cut-off (0.25 to 0.7). The best pair by F1 on validation was then
 scored once on the test split.
 
 **This uses the annotated corners**, so it measures the square assignment when
-the corners are exact. Corners from user taps or a corner detector will be worse,
-and that has not been measured.
+the corners are exact. Corners from user taps or a corner detector are worse. Taps on
+a phone gave a position that was often off by a row, column or diagonal when tried by hand
+(not measured). The corner detector is measured in "Finding the corners automatically" below.
 
 ## Results on the 306 test photographs
 
@@ -65,13 +67,81 @@ drawn over the photo so the user can check the fit, or automatic corner detectio
 needed. Real tap errors have not been measured, and noise here is random while human
 errors may be biased in one direction.
 
+## Finding the corners automatically
+
+Marking four corners by hand is too imprecise (see the noise table), so a second model
+finds them. It runs in three steps, and the first step is the only one that needs training.
+
+1. **Corner detector.** A YOLOv8n-pose model with four keypoints, trained on the 1,442
+   training photographs from ChessReD2K that have annotated corners, with the same
+   train, validation and test split as the piece detector. The keypoints are stored in
+   screen order (top-left, top-right, bottom-right, bottom-left), because an empty board
+   does not show which side White is on.
+2. **Refinement.** Move the four corners so each detected piece's base sits nearer the
+   middle of its square (`refine_corners`). A pull towards the starting corners
+   (`prior_weight`) stops a few misread pieces from dragging the board away. This only
+   helps when the corners start within about half a square of the truth, since a grid
+   shifted by a whole square fits the pieces equally well.
+3. **Naming a1** (`orient_corners`). The checkerboard pattern separates quarter turns,
+   because a1 is a dark square (light minus dark brightness was positive at the annotated
+   corners in all 160 photographs sampled from val and test). The pieces then separate the
+   two remaining half-turn options: more white pieces on ranks 1 to 4 and black pieces on
+   ranks 5 to 8 wins. Refinement comes first because the checkerboard test only works
+   when the corners are within about a third of a square.
+
+Corner error is measured as a percentage of the board's side, the same unit as the noise
+table. On the 306 test photographs:
+
+| Corner model | Mean corner error | Median of the worst corner | All corners within 3% | All corners within 6% |
+|---|---|---|---|---|
+| Trained with mosaic augmentation | 19.77% | 15.75% | 0.0% | 0.65% |
+| Trained without mosaic augmentation | 4.22% | 5.00% | 10.46% | 64.38% |
+
+Turning mosaic augmentation off was the only change between these two runs (both single
+runs, 40 epochs requested, the first stopped early at epoch 20). The likely reason is that
+mosaic shrinks and crops the board and can push corners out of the image, but that was not
+tested separately. The second model is used below.
+
+Whole-position accuracy with detected corners, same piece settings as before (anchor 0.9,
+conf 0.5). The refinement strength was chosen on val (candidates 1, 3, 10, 30 and 100; 3
+won) and the test split was scored with that setting:
+
+| Corners | Exact position, val | Exact position, test |
+|---|---|---|
+| Annotated (ceiling) | 94.24% | 96.73% |
+| Detected, a1 named from the pieces only | 50.30% | 67.65% |
+| Detected, a1 named from pieces and checkerboard | 56.36% | 70.59% |
+| Detected, refined, then named from pieces and checkerboard | 72.42% | 86.60% |
+| Same, counting a photo as right if flipping the board half a turn fixes it | 81.82% | 87.25% |
+
+How to read this:
+
+- **The gap to the ceiling is real.** With detected corners the test result is 86.60%
+  against 96.73% with annotated ones, and the median worst corner after refinement is
+  still 3.11% of the board side on test, with no photo having all four corners within 1%.
+- **Validation is much worse than test (72.42% against 86.60%).** A one-off diagnostic
+  (not saved as a report) found that most validation failures are a half-turn mistake
+  in late-game positions with few pieces, where the piece colours say little about which
+  side is which. The flip row shows what a "flip board" button would recover. The test
+  games have fewer of these, so the test number is probably the kinder of the two.
+- **The test split is not a clean one-shot for this stage.** The checkerboard step and
+  the refine-first order were added after the pieces-only results on both splits had been
+  seen, and after a failure analysis on validation. The refinement strength itself was
+  chosen on validation only.
+- **Single runs.** One training run of the corner model per setting, with MPS training
+  that is not bit-reproducible.
+- **Same three-game limit as before.** The corner model learned from ChessReD's boards and
+  cameras. Photos of other boards and phones have not been tested, so how well it works on
+  a new phone is unknown.
+
 ## How far to trust this
 
 - **Three games.** The 306 test photographs come from three games, with many
   near-identical frames of each position. The 96.73% exact rate is across
   photographs and likely overstates how it would do on new games, boards and
   cameras. This is the main caveat.
-- **Perfect corners in the main table.** See Method and the sensitivity table above.
+- **Perfect corners in the main table.** See Method, the sensitivity table, and the
+  automatic-corner results above.
 - **Piece placement only.** A photo cannot give whose turn it is, castling rights
   or move counters, so only the piece-placement part of a FEN is produced.
 - **Tuning and test share a pipeline but not images.** The settings came from
@@ -87,3 +157,18 @@ python scripts/eval_position.py --data /path/to/chessred   # folder with annotat
 
 Detections are cached under `build/position_eval/` so reruns are fast. Then
 `python scripts/eval_corner_noise.py --data /path/to/chessred` runs the corner sensitivity test.
+
+The corner detector:
+
+```bash
+python scripts/prepare_corner_data.py --data /path/to/chessred --out build/corners
+yolo pose train data=$PWD/build/corners/corners.yaml model=yolov8n-pose.pt imgsz=640 \
+    epochs=40 patience=40 mosaic=0 batch=16 device=mps seed=42 \
+    project=$PWD/build/runs name=corners-n-nomosaic
+python scripts/eval_corners.py --weights build/runs/corners-n-nomosaic/weights/best.pt
+python scripts/eval_pipeline.py --data /path/to/chessred \
+    --weights build/runs/corners-n-nomosaic/weights/best.pt
+```
+
+Pass an absolute `project=` path: a relative one is placed under Ultralytics' own runs
+folder, which can be outside this repository. The weights are not committed.

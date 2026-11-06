@@ -17,6 +17,9 @@ include = [
     "scripts/log_runs_to_mlflow.py",
     "scripts/eval_position.py",
     "scripts/eval_corner_noise.py",
+    "scripts/prepare_corner_data.py",
+    "scripts/eval_corners.py",
+    "scripts/eval_pipeline.py",
 ]
 
 [tool.ruff.lint]
