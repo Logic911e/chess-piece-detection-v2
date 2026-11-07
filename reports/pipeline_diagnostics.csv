@@ -1,0 +1,45 @@
+split,section,key,value,images
+val,exact by game,"game 6, annotated corners",0.9250,120
+val,exact by game,"game 6, corners found",0.7417,120
+val,exact by game,"game 47, annotated corners",0.9450,109
+val,exact by game,"game 47, corners found",0.6972,109
+val,exact by game,"game 58, annotated corners",0.9604,101
+val,exact by game,"game 58, corners found",0.7327,101
+val,what the result is,exact,0.7242,239
+val,what the result is,3 or more squares wrong,0.1394,46
+val,what the result is,half turn,0.0939,31
+val,what the result is,1 to 2 squares wrong,0.0424,14
+val,of the wrong ones,also wrong with annotated corners,0.2088,19
+val,of the wrong ones,right with annotated corners,0.7912,72
+val,wrong ones: corners,corners misplaced,0.5165,47
+val,wrong ones: corners,"placed, wrong name",0.3516,32
+val,wrong ones: corners,"placed, right name",0.1319,12
+val,where a1 is in the photo,top-left,0.2727,90
+val,where a1 is in the photo,top-right,0.2364,78
+val,where a1 is in the photo,bottom-right,0.2394,79
+val,where a1 is in the photo,bottom-left,0.2515,83
+val,pieces on the board,"median, min","18.0, 6",
+val,anchor offset in squares,across the file,"median +0.015, 10th -0.168, 90th +0.178",6118
+val,anchor offset in squares,along the rank,"median -0.012, 10th -0.174, 90th +0.171",6118
+test,exact by game,"game 0, annotated corners",0.9417,103
+test,exact by game,"game 0, corners found",0.7476,103
+test,exact by game,"game 33, annotated corners",0.9806,103
+test,exact by game,"game 33, corners found",0.9126,103
+test,exact by game,"game 76, annotated corners",0.9800,100
+test,exact by game,"game 76, corners found",0.9400,100
+test,what the result is,exact,0.8660,265
+test,what the result is,3 or more squares wrong,0.1046,32
+test,what the result is,1 to 2 squares wrong,0.0229,7
+test,what the result is,half turn,0.0065,2
+test,of the wrong ones,right with annotated corners,0.7561,31
+test,of the wrong ones,also wrong with annotated corners,0.2439,10
+test,wrong ones: corners,corners misplaced,0.7317,30
+test,wrong ones: corners,"placed, right name",0.2195,9
+test,wrong ones: corners,"placed, wrong name",0.0488,2
+test,where a1 is in the photo,top-left,0.2516,77
+test,where a1 is in the photo,top-right,0.2288,70
+test,where a1 is in the photo,bottom-right,0.2778,85
+test,where a1 is in the photo,bottom-left,0.2418,74
+test,pieces on the board,"median, min","19.0, 6",
+test,anchor offset in squares,across the file,"median -0.003, 10th -0.172, 90th +0.176",6279
+test,anchor offset in squares,along the rank,"median -0.003, 10th -0.171, 90th +0.166",6279
