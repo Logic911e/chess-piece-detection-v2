@@ -16,7 +16,6 @@ reports/
 notebooks/
 tests/
 docs/
-web/
 scripts/
 mlflow.db
 mlruns/

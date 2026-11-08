@@ -20,9 +20,9 @@ repos:
       # Only the service code is linted; the original course scripts are not.
       - id: ruff-check
         args: [--fix]
-        files: ^(src/(predict|app|schemas|position|analysis|crops)\.py|tests/(conftest|test_predict|test_api|test_position|test_analysis)\.py|scripts/(log_runs_to_mlflow|eval_position|eval_corner_noise|prepare_corner_data|prepare_crop_data|eval_corners|eval_pipeline)\.py)$
+        files: ^(src/(predict|app|schemas|position|analysis|crops)\.py|tests/(conftest|test_predict|test_api|test_position|test_analysis)\.py|scripts/(log_runs_to_mlflow|eval_position|eval_corner_noise|prepare_corner_data|prepare_crop_data|eval_multistart|eval_corners|eval_pipeline)\.py)$
       - id: ruff-format
-        files: ^(src/(predict|app|schemas|position|analysis|crops)\.py|tests/(conftest|test_predict|test_api|test_position|test_analysis)\.py|scripts/(log_runs_to_mlflow|eval_position|eval_corner_noise|prepare_corner_data|prepare_crop_data|eval_corners|eval_pipeline)\.py)$
+        files: ^(src/(predict|app|schemas|position|analysis|crops)\.py|tests/(conftest|test_predict|test_api|test_position|test_analysis)\.py|scripts/(log_runs_to_mlflow|eval_position|eval_corner_noise|prepare_corner_data|prepare_crop_data|eval_multistart|eval_corners|eval_pipeline)\.py)$
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v2.4.1  # keep in step with requirements-dev.txt

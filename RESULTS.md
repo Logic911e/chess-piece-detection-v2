@@ -318,6 +318,8 @@ This replicates Wölflein and Arandjelović, who used exactly two photographs to
 fine-tune their three-stage pipeline, and shows the effect is not specific to
 their architecture: it holds for an end-to-end detector too.
 
+Caveat: Each run's best checkpoint was chosen, and training stopped early, by score on the full 330-photo validation split (`src/finetune.py`), so the small counts used those 330 labelled photos for selection too. A run that picks its checkpoint from the N photos alone has not been done, so the low-N figures may be somewhat optimistic.
+
 The elbow sits between 25 and 100 images:
 
 - 25 images reach **82%** of full-data performance

@@ -108,6 +108,8 @@ Fine-tuning data efficiency (mean of 3 seeds up to N=50, single runs above):
 The seed-to-seed spread is large for small N (0.1085 at N=2) and small by N=50
 (0.0137), so differences smaller than that spread are not meaningful.
 
+Caveat: Each run's best checkpoint was chosen, and training stopped early, by score on the full 330-photo validation split (`src/finetune.py`), so the small counts used those 330 labelled photos for selection too. A run that picks its checkpoint from the N photos alone has not been done, so the low-N figures may be somewhat optimistic.
+
 Checkpoint metrics (`val_*` in MLflow) are measured on each run's own
 validation split, which is synthetic for one model and real for the other.
 **They are not comparable to each other.**

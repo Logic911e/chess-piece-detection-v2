@@ -21,6 +21,7 @@ include = [
     "scripts/eval_corners.py",
     "scripts/eval_pipeline.py",
     "scripts/prepare_crop_data.py",
+    "scripts/eval_multistart.py",
     "src/crops.py",
 ]
 

@@ -5,8 +5,9 @@ is a1 (orient_corners), and optionally the corners are nudged towards the piece 
 (refine_corners). The position is then scored against the annotation, using the cached
 piece detections from eval_position.py.
 
-The refinement strength is tuned on the validation split and the best setting is scored once
-on the test split. Piece settings stay at the values tuned there earlier (anchor 0.9, conf 0.5).
+The refinement strength is tuned on the validation split. Every variant is also scored on the
+test split and written to the CSV, so the test split is seen for all of them. Piece settings
+stay at the values tuned there earlier (anchor 0.9, conf 0.5).
 
     python scripts/eval_pipeline.py --data ../data/raw/chessred \\
         --weights build/runs/corners-n-nomosaic/weights/best.pt

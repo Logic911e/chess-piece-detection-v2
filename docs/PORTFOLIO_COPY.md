@@ -21,7 +21,8 @@ Then I fine-tuned it on real photos. Two photos took the score to 0.4330 on
 average over three random draws. With 50 photos it reached 0.8262, and with all
 1,442 it reached 0.9029. The spread between draws was large at two photos and
 small by fifty, so a handful of photos gives an unreliable result and fifty gives
-a dependable one.
+a dependable one. (Each run's best checkpoint was chosen on the 330 validation photos, so
+the small counts also used those labels for selection.)
 
 The second half of the work was making it run as a service. The model now sits
 behind a FastAPI service in a Docker container, with tests, linting and a

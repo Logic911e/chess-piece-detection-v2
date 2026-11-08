@@ -1,0 +1,27 @@
+weights,split,what,exact
+corners-n-nomosaic,val,start 0 alone,0.7242
+corners-n-nomosaic,val,start 1 alone,0.2091
+corners-n-nomosaic,val,start 2 alone,0.5879
+corners-n-nomosaic,val,start 3 alone,0.6
+corners-n-nomosaic,val,start 4 alone,0.097
+corners-n-nomosaic,val,start 5 alone,0.4606
+corners-n-nomosaic,val,start 6 alone,0.7
+corners-n-nomosaic,val,start 7 alone,0.1818
+corners-n-nomosaic,val,start 8 alone,0.4727
+corners-n-nomosaic,val,start 9 alone,0.6818
+corners-n-nomosaic,val,start 10 alone,0.6576
+corners-n-nomosaic,val,chosen without labels,0.8
+corners-n-nomosaic,val,"oracle (best start, uses labels)",0.8303
+corners-n-nomosaic,test,start 0 alone,0.866
+corners-n-nomosaic,test,start 1 alone,0.2222
+corners-n-nomosaic,test,start 2 alone,0.6993
+corners-n-nomosaic,test,start 3 alone,0.7484
+corners-n-nomosaic,test,start 4 alone,0.1046
+corners-n-nomosaic,test,start 5 alone,0.5098
+corners-n-nomosaic,test,start 6 alone,0.8366
+corners-n-nomosaic,test,start 7 alone,0.1765
+corners-n-nomosaic,test,start 8 alone,0.6307
+corners-n-nomosaic,test,start 9 alone,0.8301
+corners-n-nomosaic,test,start 10 alone,0.8105
+corners-n-nomosaic,test,chosen without labels,0.9118
+corners-n-nomosaic,test,"oracle (best start, uses labels)",0.9281

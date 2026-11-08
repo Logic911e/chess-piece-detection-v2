@@ -26,7 +26,7 @@ Fine-tuning on real photographs closes most of it:
 
 Values up to 50 photographs are means of 3 seeds. The 2-photo result varies a lot
 by which photos are drawn (spread 0.1085 across seeds), and by 50 photographs the
-spread is 0.0137. Full tables, per-class results and the caveats are in
+spread is 0.0137. One caveat: each run's best checkpoint was chosen, and training stopped early, by score on the full 330-photo validation split (`src/finetune.py`), so the small counts used those 330 labelled photos for selection too. A run that picks its checkpoint from the N photos alone has not been done, so the low-N figures may be somewhat optimistic. Full tables, per-class results and the caveats are in
 [`RESULTS.md`](RESULTS.md) and [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md).
 
 The service exposes both models, so you can send one image to each and compare.
@@ -125,7 +125,7 @@ model gets the whole position exactly right in 96.73% of the 306 test photograph
 more than about 1% of the board's side, and by hand the corners were often a little off
 (not measured). The corner detector plus a refinement step gets the whole position exactly
 right in 91.18% of the test photographs without any hand-placed corners (80.00% on the
-validation split), described in `docs/POSITION.md`. Only piece placement is read.
+validation split, 85.38% pooled over both), described in `docs/POSITION.md`. Only piece placement is read.
 
 ## API
 
@@ -217,13 +217,13 @@ amd64, so it must be built for that platform.
   and each handset photographed one game, so camera and game cannot be separated.
 - **The synthetic model is under-trained.** It ran 8 of 50 planned epochs, so the
   79.8% drop may be a little overstated.
-- **Automatic corners give the right position in 91% of the test photographs** (80% on
-  validation). Each split is three games and the results differ between games (78 to 84% on
-  four of the six, 94 to 95% on the other two), and the method was tuned while both splits were
-  visible, so treat 91% as the optimistic end.
-  The page shows the corners for you to check. The corner model
-  has only seen ChessReD's boards and cameras, and photos from your own phone and board have
-  not been measured. Position accuracy falls quickly as the corners get less precise.
+- **Automatic corners give the right position in 85% of the 636 validation and test
+  photographs pooled** (91% on test, 80% on validation). Each split is three games and the
+  results differ between games (78 to 84% on four of the six, 94 to 95% on the other two). The
+  method was tuned while both splits were visible, so treat all of these as the optimistic end.
+  The page shows the corners for you to check. The corner model has only seen ChessReD's boards
+  and cameras, and photos from your own phone and board have not been measured. Position
+  accuracy falls quickly as the corners get less precise.
 - **Untested conditions.** Lighting, angle and chess sets outside ChessReD have
   not been tested.
 - **Fine-tuning points from 100 photographs up are single runs.**

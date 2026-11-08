@@ -17,7 +17,8 @@ and `scripts/eval_pipeline.py`. The method is in `src/position.py`.
 
 Two settings were tuned on the validation split: `anchor_y` (0.6 to 1.0) and the
 confidence cut-off (0.25 to 0.7). The best pair by F1 on validation was then
-scored once on the test split.
+scored once on the test split (for this piece-level stage only; the corner stages below saw
+the test split more often).
 
 **This uses the annotated corners**, so it measures the square assignment when
 the corners are exact. Corners from user taps or a corner detector are worse. Taps on
@@ -87,8 +88,9 @@ finds them. It runs in three steps, and the first step is the only one that need
    the board side in x and/or y, and two rescalings by 0.94 and 1.06), and the result where the
    pieces sit closest to the middle of their squares (`alignment_error`, no labels used) is kept.
    If the correct answer were used to pick among the 11, the position would be right in 83.03%
-   of the validation photos and 92.81% of the test photos, so the label-free choice (80.00%,
-   91.18%) recovers most of that ceiling. It adds about 60 ms per photo (median of 21 test
+   of the validation photos and 92.81% of the test photos (`scripts/eval_multistart.py`,
+   `reports/multistart_eval.csv`), so the label-free choice (80.00%, 91.18%) recovers most of
+   that ceiling. It adds about 60 ms per photo (median of 21 test
    photos, measured on this laptop).
 3. **Naming a1** (`orient_corners`). The checkerboard pattern separates quarter turns,
    because a1 is a dark square (light minus dark brightness was positive at the annotated
@@ -105,10 +107,14 @@ table. On the 306 test photographs:
 | Trained with mosaic augmentation | 19.77% | 15.75% | 0.0% | 0.65% |
 | Trained without mosaic augmentation | 4.22% | 5.00% | 10.46% | 64.38% |
 
-Turning mosaic augmentation off was the only change between these two runs (both single
-runs, 40 epochs requested, the first stopped early at epoch 20). The likely reason is that
-mosaic shrinks and crops the board and can push corners out of the image, but that was not
-tested separately. The second model is used below.
+These two runs differ in more than mosaic. The first had mosaic on and early-stopping
+patience 10, and stopped at epoch 20 (best epoch 10), so it trained for about half as long; the
+second had mosaic off, patience 40 and ran the full 40 epochs (see `args.yaml` in each run
+folder). Both are single runs with seed 42. The size of the gap, and a 19.77% error that
+looks more like a broken run than a tuning effect, mean mosaic is a plausible cause but not an
+established one: the arm with mosaic on and patience 40 has not been run. The likely mechanism
+is that mosaic shrinks and crops the board and can push corners out of the image, which is also
+untested. The second model is used below.
 
 Whole-position accuracy with detected corners, same piece settings as before (anchor 0.9,
 conf 0.5). The refinement strength was chosen on val (candidates 1, 3, 10, 30 and 100; 3
@@ -122,6 +128,10 @@ won) and the test split was scored with that setting:
 | Detected, refined, then named from pieces and checkerboard | 72.42% | 86.60% |
 | Same, counting a photo as right if flipping the board half a turn fixes it | 81.82% | 87.25% |
 | Detected, best of 11 nearby starts, then refined and named (used in the service) | 80.00% | 91.18% |
+
+Pooled over both splits that last row is 543 of 636 photographs, **85.38%**, across six games
+(78.0% to 95.0% by game). That pooled figure, not the test column alone, is the fairer summary,
+and even it is optimistic because no split was kept untouched while the method was designed.
 
 How to read this:
 
@@ -220,7 +230,8 @@ with the server already running and both models loaded, so it is not a cold-star
 - **Piece placement only.** A photo cannot give whose turn it is, castling rights
   or move counters, so only the piece-placement part of a FEN is produced.
 - **Tuning and test share a pipeline but not images.** The settings came from
-  the validation split and the test split was scored once.
+  the validation split. The test split was scored once for the piece settings; the corner stage
+  was scored on it many more times (see the notes under the results table).
 - **Not tested:** other lighting, other chess sets, hidden pieces on crowded
   boards beyond what is in these photographs.
 
