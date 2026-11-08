@@ -2,3 +2,4 @@ weights,split,images,detected,mean_error_pct,median_worst_corner_pct,p90_worst_c
 corners-n,test,306,306,19.768,15.75,86.237,0.0,0.0,0.0,0.0,0.0065
 corners-n-nomosaic,test,306,306,4.222,5.003,9.633,0.0,0.0,0.0131,0.1046,0.6438
 corners-s-nomosaic,test,306,306,5.26,5.673,10.166,0.0,0.0,0.0131,0.0621,0.5359
+corners-n-aug,test,306,306,11.864,10.036,32.274,0.0,0.0,0.0,0.0,0.1732

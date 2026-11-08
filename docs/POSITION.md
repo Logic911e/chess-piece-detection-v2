@@ -186,7 +186,7 @@ How to read this:
   cameras. Photos of other boards and phones have not been tested, so how well it works on
   a new phone is unknown.
 
-### Two attempts to find the corners more precisely that did not help
+### Three attempts to find the corners more precisely that did not help
 
 Both were scored the same way as the nano model (tuned on validation, then scored on test).
 
@@ -195,6 +195,7 @@ Both were scored the same way as the nano model (tuned on validation, then score
 | Nano pose model (used) | 4.22 | 72.42% | 86.60% |
 | Small pose model (yolov8s-pose) | 5.26 | 73.33% | 85.62% |
 | Nano model, then a second nano model on a crop around the board | 5.22 | 70.91% | 85.95% |
+| Nano, mosaic off, plus rotation (up to 10 degrees), slight perspective and brightness changes | 11.86 | 32.73% | 46.41% |
 
 The second stage cuts a square crop around the first stage's corners from the full-size photo,
 resizes it to 640 pixels and finds the corners again; it was trained on crops placed from the
@@ -205,6 +206,13 @@ resolve. I did not find out why. Untested guesses: the annotated corners are the
 imprecise at this level, or the crop model needs more varied jitter than I gave it.
 `scripts/prepare_crop_data.py` and `--stage2` in `eval_pipeline.py` reproduce it. The service
 uses the single nano model.
+
+The table's exact-position columns use one start (before the multi-start step). With 11 starts the
+augmentation model gets 45.76% on validation and 56.54% on test, against 80.00% and 91.18% for
+the nano model. The augmentation run changed several settings at once (`degrees=10`,
+`perspective=0.0005`, `hsv_v=0.5`, on top of mosaic off), so this does not say which one hurt.
+It does show that geometric augmentation can damage a corner model here, which makes it a
+candidate explanation for the mosaic result too, but that is still untested.
 
 ### In the service
 
