@@ -8,7 +8,7 @@ Chess piece detection with YOLOv8, with a ResNet-50 classifier as a
 baseline. The research question is the domain gap: how much performance is lost
 when a model trained on synthetic rendered images meets real smartphone photographs.
 
-Anjola Sigbeku, 000000000, Victoria University of Wellington.
+Anjola Sigbeku, Victoria University of Wellington.
 
 ## Layout
 

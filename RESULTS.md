@@ -1,7 +1,7 @@
  # Progress and Results Log
 
 Real-time chess piece detection with YOLOv8: a domain gap analysis.
-AIML339, Anjola Sigbeku (000000000), Victoria University of Wellington.
+AIML339, Anjola Sigbeku, Victoria University of Wellington.
 
 Running record of experiments, findings, and decisions. Source material for
 the evaluation and final reports.
