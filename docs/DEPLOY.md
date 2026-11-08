@@ -206,7 +206,7 @@ want its emails.
 ## Not verified
 
 - No command in this file has been run.
-- The amd64 image has not been built, so its size may differ from the 2.01 GB
+- The amd64 image has not been built, so its size may differ from the 2.23 GB
   measured for the arm64 image.
 - Cold-start time and per-request latency on Cloud Run have not been measured.
 - The budget flags and the region list should be checked against current docs.

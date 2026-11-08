@@ -75,7 +75,7 @@ docker build -t chess-api .
 docker run --rm -p 8080:8080 chess-api
 ```
 
-The image is 2.01 GB, mostly PyTorch. The first request after the container starts
+The image is 2.23 GB as `docker images` reports it for an arm64 build (the PyTorch layer is 950 MB and the other Python packages 550 MB; the earlier 2.01 GB figure was measured before SciPy and the corner model were added, which probably explains the difference but I did not rebuild the old image to confirm). The first request after the container starts
 is slower than later ones because of warm-up. Latency has not been benchmarked
 properly, so there is no figure here (TBD).
 
@@ -227,7 +227,7 @@ amd64, so it must be built for that platform.
 - **Untested conditions.** Lighting, angle and chess sets outside ChessReD have
   not been tested.
 - **Fine-tuning points from 100 photographs up are single runs.**
-- **Size and speed.** The 2.01 GB image makes cold starts slow, and inference is
+- **Size and speed.** The 2.23 GB image makes cold starts slow, and inference is
   CPU-only.
 - **Uploads are capped at 5 MB and 40 million pixels**, and the 5 MB cap is more than some raw
   phone photos fit. Model calls take turns (one at a time) and `/analyse` allows two engine runs at
