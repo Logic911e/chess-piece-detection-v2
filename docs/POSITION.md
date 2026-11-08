@@ -82,6 +82,14 @@ finds them. It runs in three steps, and the first step is the only one that need
    (`prior_weight`) stops a few misread pieces from dragging the board away. This only
    helps when the corners start within about half a square of the truth, since a grid
    shifted by a whole square fits the pieces equally well.
+   **Several starts** (`locate_board_multistart`): because that basin is narrow, the whole
+   procedure is run from 11 starting points (the detected corners, eight copies shifted by 4% of
+   the board side in x and/or y, and two rescalings by 0.94 and 1.06), and the result where the
+   pieces sit closest to the middle of their squares (`alignment_error`, no labels used) is kept.
+   If the correct answer were used to pick among the 11, the position would be right in 83.03%
+   of the validation photos and 92.81% of the test photos, so the label-free choice (80.00%,
+   91.18%) recovers most of that ceiling. It adds about 60 ms per photo (median of 21 test
+   photos, measured on this laptop).
 3. **Naming a1** (`orient_corners`). The checkerboard pattern separates quarter turns,
    because a1 is a dark square (light minus dark brightness was positive at the annotated
    corners in all 160 photographs sampled from val and test). The pieces then separate the
@@ -113,21 +121,55 @@ won) and the test split was scored with that setting:
 | Detected, a1 named from pieces and checkerboard | 56.36% | 70.59% |
 | Detected, refined, then named from pieces and checkerboard | 72.42% | 86.60% |
 | Same, counting a photo as right if flipping the board half a turn fixes it | 81.82% | 87.25% |
+| Detected, best of 11 nearby starts, then refined and named (used in the service) | 80.00% | 91.18% |
 
 How to read this:
+
+- **The multi-start row was developed after looking at both splits.** The start offsets (4%,
+  0.94 and 1.06) and the selection score were tried while the validation and test results were
+  both on screen, and I did not keep a split untouched for it. The score has no free
+  weight to tune (I also tried adding a legality penalty and kept the simpler version), but the
+  91.18% is the least clean number in this document. The 80.00% on validation is the better
+  guide, and a fresh set is the only real check.
 
 - **The gap to the ceiling is real.** With detected corners the test result is 86.60%
   against 96.73% with annotated ones, and the median worst corner after refinement is
   still 3.11% of the board side on test, with no photo having all four corners within 1%.
-- **Validation is much worse than test (72.42% against 86.60%).** A one-off diagnostic
-  (not saved as a report) found that most validation failures are a half-turn mistake
-  in late-game positions with few pieces, where the piece colours say little about which
-  side is which. The flip row shows what a "flip board" button would recover. The test
-  games have fewer of these, so the test number is probably the kinder of the two.
+- **Validation is worse than test (80.00% against 91.18%), and the gap is mostly which games
+  they hold.** Each split is only three games, and photos of one game are near duplicates, so
+  this is a comparison of six games, not of 636 photos (`scripts/diagnose_pipeline.py`,
+  `reports/pipeline_diagnostics.csv`; "one start" is the refine-first method before the
+  multi-start step below, "11 starts" is the method in the service):
+
+  | Game | Camera | Split | Annotated corners | Corners found, one start | Corners found, 11 starts |
+  |---|---|---|---|---|---|
+  | 6 | Huawei P40 pro | val | 92.50% | 74.17% | 81.67% |
+  | 47 | iPhone 12 | val | 94.50% | 69.72% | 77.98% |
+  | 58 | Galaxy S8 | val | 96.04% | 73.27% | 80.20% |
+  | 0 | Huawei P40 pro | test | 94.17% | 74.76% | 84.47% |
+  | 33 | iPhone 12 | test | 98.06% | 91.26% | 94.17% |
+  | 76 | Galaxy S8 | test | 98.00% | 94.00% | 95.00% |
+
+  Games 33 and 76 are easier than the other four. The camera does not explain it (each phone
+  has one easy and one hard game among these six); what makes a game hard is not known.
+- **What goes wrong.** Of the photos that come out wrong with 11 starts, 36.4% on validation
+  (66 photos) and 44.4% on test (27 photos) still have a corner 6% or more of the board side
+  from the board. On validation 40.9% have the corners on the board but a1 named wrongly, nearly
+  all half turns (32 photos, 9.70% of all validation photos; 5 photos, 1.63%, on test), and on
+  test 18.5% do. The rest were placed and named correctly and still wrong. 71% (val) and 63%
+  (test) of the wrong photos come out right with the annotated corners. With one start, misplaced
+  corners were 52% of the validation failures and 73% of the test failures, so the extra starts
+  mainly removed those. An earlier version of this page said most validation failures were
+  half-turn mistakes. That came from a check that was never saved, and the saved numbers do not
+  support it.
+- **Which way round the board sits is well covered.** a1 is in each of the four screen
+  corners in about a quarter of the photos on both splits, so the orientation step is not
+  being flattered by photos that all have White at the bottom.
 - **The test split is not a clean one-shot for this stage.** The checkerboard step and
   the refine-first order were added after the pieces-only results on both splits had been
   seen, and after a failure analysis on validation. The refinement strength itself was
-  chosen on validation only.
+  chosen on validation only. The test split was also scored for the larger and two-stage corner
+  models, so it has been looked at several times.
 - **Single runs.** One training run of the corner model per setting, with MPS training
   that is not bit-reproducible.
 - **Same three-game limit as before.** The corner model learned from ChessReD's boards and
@@ -157,14 +199,15 @@ uses the single nano model.
 ### In the service
 
 `models/corners.pt` (not committed) switches this on. With it, `POST /position` without a
-`corners` field runs the piece detector, the corner detector, `locate_board` (refine, then name
-a1) and returns the corners it used next to the squares, and `GET /health` reports
-`auto_corners: true`. `web/position.html` calls it as soon as a photo is chosen, places the
-four handles from the answer for you to check, and has a "Flip board" button for the half-turn
-mistakes described above. Without the weights, or if no board is found, the server says so and the page
-falls back to hand-placed corners. As a check on the wiring, 51 test photographs (every sixth)
-sent through the real API with no corners gave 44 exact positions (86.3%), in line with the table
-(a small sample, run while training was using the same machine, so no timing is quoted).
+`corners` field runs the piece detector, the corner detector, `locate_board_multistart` (refine
+from several starts, then name a1) and returns the corners it used next to the squares, and
+`GET /health` reports `auto_corners: true`. `web/position.html` calls it as soon as a photo is
+chosen, places the four handles from the answer for you to check, and has a "Flip board" button for
+the half-turn mistakes described above. Without the weights, or if no board is found, the server
+says so and the page falls back to hand-placed corners. As a check on the wiring, 51 test
+photographs (every sixth) sent through the real API with no corners gave 47 exact positions
+(92.2%), in line with the table (a small sample; the median request took 0.5 s on this laptop,
+with the server already running and both models loaded, so it is not a cold-start figure).
 
 ## How far to trust this
 

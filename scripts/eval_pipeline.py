@@ -40,6 +40,7 @@ from position import (  # noqa: E402
     CORNER_ORDER,
     detections_to_position,
     locate_board,
+    locate_board_multistart,
     orient_corners,
     refine_corners,
 )
@@ -144,7 +145,7 @@ def corner_error_pct(corners: dict, truth: dict) -> float:
 
 
 def build(
-    items, detections, screen, refine_weight: float | None, checkerboard: bool
+    items, detections, screen, refine_weight: float | None, checkerboard: bool, multistart=False
 ) -> dict[int, dict | None]:
     result: dict[int, dict | None] = {}
     for image_id, path, _, _ in items:
@@ -155,7 +156,9 @@ def build(
         dets = detections[image_id]
         try:
             gray = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE) if checkerboard else None
-            if refine_weight is not None and checkerboard:
+            if multistart:
+                corners = locate_board_multistart(pts, dets, gray, ANCHOR_Y, CONF, refine_weight)
+            elif refine_weight is not None and checkerboard:
                 corners = locate_board(pts, dets, gray, ANCHOR_Y, CONF, refine_weight)
             else:
                 corners = orient_corners(pts, dets, ANCHOR_Y, CONF, gray)
@@ -252,6 +255,8 @@ def main() -> None:
         for w in PRIOR_WEIGHTS:
             name = f"detected, refine, then orientation from pieces + checkerboard (prior {w:g})"
             out[name] = evaluate(items, detections, build(items, detections, screen, w, True))
+        name = "detected, best of 11 starts by piece alignment, same method (prior 3)"
+        out[name] = evaluate(items, detections, build(items, detections, screen, 3.0, True, True))
         for m in out.values():
             m["detector_mean_error_pct"] = raw_error_pct(items, screen)
         return out

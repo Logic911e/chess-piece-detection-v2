@@ -324,3 +324,66 @@ def locate_board(
     refined = refine_corners(unnamed, detections, anchor_y, min_conf, prior_weight)
     a1, h1, h8, a8 = (refined[name] for name in CORNER_ORDER)
     return orient_corners([a8, h8, h1, a1], detections, anchor_y, min_conf, gray)
+
+
+# Nudges of the detected corners tried as starting points: the nine shifts of 0 or +-4% of the
+# board side in x and y (the zero shift is the detector's own answer), and two rescalings.
+_START_SHIFTS = [(dx, dy) for dx in (0.0, -0.04, 0.04) for dy in (0.0, -0.04, 0.04)]
+_START_SCALES = (0.94, 1.06)
+
+
+def start_points(screen_corners: list[list[float]]) -> list[list[list[float]]]:
+    """The detected corners first, then shifted and rescaled copies of them."""
+    pts = np.array(screen_corners, dtype=np.float64)
+    centre = pts.mean(axis=0)
+    side = float(np.mean([np.linalg.norm(pts[i] - pts[(i + 1) % 4]) for i in range(4)]))
+    shifted = [pts + np.array([dx, dy]) * side for dx, dy in _START_SHIFTS]
+    scaled = [centre + (pts - centre) * s for s in _START_SCALES]
+    return [p.tolist() for p in shifted + scaled]
+
+
+def alignment_error(
+    detections: list[dict],
+    corners: dict[str, list[float]],
+    anchor_y: float = 0.9,
+    min_conf: float = 0.5,
+) -> float:
+    """Mean distance, in squares, from each piece's base to the centre of its square, capped at
+    half a square. Low when the grid sits on the pieces. A grid shifted by a whole square scores
+    the same, so this chooses between nearby starts and cannot fix a whole-square error."""
+    homography = board_homography(corners)
+    distances = []
+    for det in detections:
+        if det["confidence"] < min_conf:
+            continue
+        x, y = image_to_board(homography, anchor_point(det["bbox"], anchor_y))
+        if -0.5 < x < 8.5 and -0.5 < y < 8.5:
+            distances.append(min(0.5, float(np.hypot(x % 1 - 0.5, y % 1 - 0.5))))
+    return float(np.mean(distances)) if distances else 1.0
+
+
+def locate_board_multistart(
+    screen_corners: list[list[float]],
+    detections: list[dict],
+    gray: np.ndarray,
+    anchor_y: float = 0.9,
+    min_conf: float = 0.5,
+    prior_weight: float = 3.0,
+) -> dict[str, list[float]]:
+    """locate_board from several nearby starting points, keeping the result where the pieces
+    sit most centrally in their squares. The first start is the detector's own answer and wins
+    ties."""
+    best: tuple[float, dict[str, list[float]]] | None = None
+    failure: Exception | None = None
+    for start in start_points(screen_corners):
+        try:
+            corners = locate_board(start, detections, gray, anchor_y, min_conf, prior_weight)
+            error = alignment_error(detections, corners, anchor_y, min_conf)
+        except (ValueError, np.linalg.LinAlgError, cv2.error) as exc:  # a twisted quadrilateral
+            failure = exc
+            continue
+        if best is None or error < best[0]:
+            best = (error, corners)
+    if best is None:
+        raise failure or ValueError("no usable starting corners")
+    return best[1]

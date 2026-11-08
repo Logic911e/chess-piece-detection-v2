@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps
 
 from analysis import analyse, fen_problems, find_engine, placement_problems
-from position import detections_to_position, fen_placement, locate_board, parse_corners
+from position import detections_to_position, fen_placement, locate_board_multistart, parse_corners
 from predict import detect_board_corners, load_corner_model, load_models, predict
 from schemas import (
     AnalyseRequest,
@@ -102,7 +102,8 @@ def read_upload(file: UploadFile) -> Image.Image:
 def find_board_corners(
     request: Request, image: Image.Image, detections: list[dict], conf: float, anchor_y: float
 ) -> dict[str, list[float]]:
-    """Corners for a photo sent without any: detect, refine against the pieces, name a1."""
+    """Corners for a photo sent without any: detect, refine against the pieces from several
+    nearby starts, name a1."""
     corner_model = request.app.state.corner_model
     if corner_model is None:
         raise HTTPException(
@@ -113,7 +114,7 @@ def find_board_corners(
         raise HTTPException(422, "No board found in the photo. Mark the corners by hand.")
     gray = np.asarray(image.convert("L"))
     try:
-        named = locate_board(screen, detections, gray, anchor_y, conf)
+        named = locate_board_multistart(screen, detections, gray, anchor_y, conf)
         return parse_corners(json.dumps(named))
     except (ValueError, np.linalg.LinAlgError, cv2.error):
         raise HTTPException(

@@ -150,7 +150,7 @@ def main() -> None:
                 (ROOT / f"build/corner_eval/{tag}_{split}.json").read_text()
             ).items()
         }
-        located = build(items, detections, screen, PRIOR, True)
+        located = build(items, detections, screen, PRIOR, True, True)
 
         failures: Counter[str] = Counter()
         placed: Counter[str] = Counter()

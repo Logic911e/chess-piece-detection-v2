@@ -124,7 +124,7 @@ model gets the whole position exactly right in 96.73% of the 306 test photograph
 (three games, so likely optimistic). Accuracy falls quickly once the corners are off by
 more than about 1% of the board's side, and by hand the corners were often a little off
 (not measured). The corner detector plus a refinement step gets the whole position exactly
-right in 86.60% of the test photographs without any hand-placed corners (72.42% on the
+right in 91.18% of the test photographs without any hand-placed corners (80.00% on the
 validation split), described in `docs/POSITION.md`. Only piece placement is read.
 
 ## API
@@ -217,8 +217,11 @@ amd64, so it must be built for that platform.
   and each handset photographed one game, so camera and game cannot be separated.
 - **The synthetic model is under-trained.** It ran 8 of 50 planned epochs, so the
   79.8% drop may be a little overstated.
-- **Automatic corners are right about 87% of the time on the test photographs** (72% on
-  validation), not every time, so the page shows the corners for you to check. The corner model
+- **Automatic corners give the right position in 91% of the test photographs** (80% on
+  validation). Each split is three games and the results differ between games (78 to 84% on
+  four of the six, 94 to 95% on the other two), and the method was tuned while both splits were
+  visible, so treat 91% as the optimistic end.
+  The page shows the corners for you to check. The corner model
   has only seen ChessReD's boards and cameras, and photos from your own phone and board have
   not been measured. Position accuracy falls quickly as the corners get less precise.
 - **Untested conditions.** Lighting, angle and chess sets outside ChessReD have

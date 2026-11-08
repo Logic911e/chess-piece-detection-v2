@@ -10,16 +10,19 @@ import pytest
 
 from position import (
     CORNER_ORDER,
+    alignment_error,
     board_homography,
     detections_to_position,
     fen_placement,
     image_to_board,
     locate_board,
+    locate_board_multistart,
     orient_corners,
     parse_corners,
     refine_corners,
     square_contrast,
     square_name,
+    start_points,
 )
 
 # A board seen at an angle: a1 bottom left, h8 top right, with perspective.
@@ -263,6 +266,32 @@ def test_locate_board_names_and_refines_detected_corners():
         for (x, y), (dx, dy) in zip(ring, [(14, 12), (-12, 16), (15, -13), (-16, -14)], strict=True)
     ]
     found = locate_board(
+        detected, opening_detections(), checkerboard_image(), anchor_y=1.0, prior_weight=1.0
+    )
+    assert max_corner_error(found) < 12
+
+
+def test_start_points_begin_with_the_detected_corners():
+    ring = screen_order(0)
+    starts = start_points(ring)
+    assert len(starts) == 11
+    assert np.allclose(starts[0], ring)
+
+
+def test_alignment_error_is_lower_for_corners_on_the_board():
+    dets = opening_detections()
+    on_board = alignment_error(dets, CORNERS, anchor_y=1.0)
+    nudged = {k: [x + 40, y] for k, (x, y) in CORNERS.items()}
+    assert on_board < alignment_error(dets, nudged, anchor_y=1.0)
+
+
+def test_locate_board_multistart_names_and_refines_detected_corners():
+    ring = screen_order(0)
+    detected = [
+        [x + dx, y + dy]
+        for (x, y), (dx, dy) in zip(ring, [(14, 12), (-12, 16), (15, -13), (-16, -14)], strict=True)
+    ]
+    found = locate_board_multistart(
         detected, opening_detections(), checkerboard_image(), anchor_y=1.0, prior_weight=1.0
     )
     assert max_corner_error(found) < 12
