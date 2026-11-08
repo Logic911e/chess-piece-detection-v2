@@ -47,3 +47,36 @@ def test_real_result_shape(real_models, tiny_image, name):
 
 def test_conf_of_one_returns_nothing(real_models, tiny_image):
     assert predict(real_models, "synthetic", tiny_image, conf=1.0)["detections"] == []
+
+
+def test_model_calls_do_not_overlap_across_threads():
+    """Several threads share one model, as the API's thread pool does. The lock makes the
+    calls take turns, so no two are inside the model at once."""
+    import threading
+    import time
+
+    from conftest import StubModel
+
+    class Probe(StubModel):
+        inside = 0
+        worst = 0
+
+        def predict(self, image, **kwargs):
+            Probe.inside += 1
+            Probe.worst = max(Probe.worst, Probe.inside)
+            time.sleep(0.02)
+            Probe.inside -= 1
+            return super().predict(image, **kwargs)
+
+    from PIL import Image
+
+    models = {"finetuned": Probe()}
+    image = Image.new("RGB", (8, 8))
+    threads = [
+        threading.Thread(target=predict, args=(models, "finetuned", image)) for _ in range(6)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert Probe.worst == 1

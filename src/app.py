@@ -11,6 +11,7 @@ import io
 import json
 import logging
 import os
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
@@ -25,7 +26,13 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps
 
 from analysis import analyse, fen_problems, find_engine, placement_problems
-from position import detections_to_position, fen_placement, locate_board_multistart, parse_corners
+from position import (
+    alignment_error,
+    detections_to_position,
+    fen_placement,
+    locate_board_multistart,
+    parse_corners,
+)
 from predict import detect_board_corners, load_corner_model, load_models, predict
 from schemas import (
     AnalyseRequest,
@@ -41,6 +48,17 @@ ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = Path(os.environ.get("MODELS_DIR", ROOT / "models"))
 WEB_DIR = Path(os.environ.get("WEB_DIR", ROOT / "web"))
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+# The byte cap alone lets a small, highly compressed file decode to a huge array, so the pixel
+# count is checked from the header before decoding. 40 million covers a 48 MP phone photo
+# (8000 x 6000) with room to spare; it is a memory guard, not a quality limit.
+MAX_PIXELS = 40_000_000
+# A page asking for an analysis starts an engine process. Allow a few at once and refuse the
+# rest, so a burst of requests cannot start an unbounded number of processes.
+ENGINE_SLOTS = threading.BoundedSemaphore(2)
+# Flag an automatic reading when the pieces sit this far from their square centres on average
+# (squares). It is the value that flagged the worst 20% of validation photos, see
+# reports/confidence_eval.csv. A weak signal: it does not see half-turn naming mistakes.
+LOW_CONFIDENCE_ALIGNMENT = 0.0456
 ALLOWED_TYPES = {"image/jpeg", "image/png"}
 # Only the demo page's origin may call the API from a browser. Comma-separated.
 _cors_raw = os.environ.get("CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000")
@@ -91,10 +109,16 @@ def read_upload(file: UploadFile) -> Image.Image:
 
     try:
         image = Image.open(io.BytesIO(data))
+        if image.width * image.height > MAX_PIXELS:
+            raise HTTPException(
+                413, f"Image has more than {MAX_PIXELS // 1_000_000} million pixels"
+            )
         # Phones store a rotated photo as upright pixels plus an orientation tag.
         # Browsers apply the tag when they show the photo, so apply it here too,
         # otherwise boxes and corners would not line up with what the user saw.
         return ImageOps.exif_transpose(image).convert("RGB")
+    except HTTPException:
+        raise
     except Exception:  # corrupt data, truncated file, decompression bomb, ...
         raise HTTPException(400, "Could not read the file as an image") from None
 
@@ -170,12 +194,18 @@ def position_endpoint(
         source = "auto"
     squares = detections_to_position(result["detections"], board_corners, anchor_y)
     placement = fen_placement(squares)
+    alignment = low_confidence = None
+    if source == "auto":
+        alignment = alignment_error(result["detections"], board_corners, anchor_y, conf)
+        low_confidence = alignment > LOW_CONFIDENCE_ALIGNMENT
     return {
         "model": model,
         "image_width": result["image_width"],
         "image_height": result["image_height"],
         "corners": {name: [round(v, 1) for v in xy] for name, xy in board_corners.items()},
         "corners_source": source,
+        "alignment_error": None if alignment is None else round(alignment, 4),
+        "low_confidence": low_confidence,
         "squares": squares,
         "fen_placement": placement,
         "pieces": len(squares),
@@ -193,6 +223,15 @@ def analyse_endpoint(body: AnalyseRequest):
             503,
             "No chess engine is set up on this server. Set STOCKFISH_PATH or install Stockfish.",
         )
+    if not ENGINE_SLOTS.acquire(blocking=False):
+        raise HTTPException(429, "The engine is busy. Try again in a few seconds.")
+    try:
+        return run_engine(engine_path, body)
+    finally:
+        ENGINE_SLOTS.release()
+
+
+def run_engine(engine_path: str, body: AnalyseRequest) -> dict:
     try:
         problems = fen_problems(body.fen)
     except ValueError:

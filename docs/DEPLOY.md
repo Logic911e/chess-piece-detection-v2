@@ -129,6 +129,13 @@ curl "$URL/health"
 curl -X POST "$URL/predict?model=finetuned" -F "file=@board.jpg;type=image/jpeg"
 ```
 
+### Limits that are in the code
+
+Uploads are capped at 5 MB and 40 million pixels (checked from the image header before decoding),
+model calls run one at a time, and `/analyse` runs at most two engine processes and answers 429
+beyond that. Memory was measured only on a 3024-pixel photo. Nothing limits requests per visitor,
+so `--max-instances` and a budget alert are still the only protection against a burst of traffic.
+
 ### The pages and the engine
 
 The image also serves the demo pages at `$URL/app/`, which call the API at the same

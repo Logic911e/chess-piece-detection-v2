@@ -135,7 +135,7 @@ Interactive docs are at `/docs` once the server is running.
 |---|---|
 | `GET /health` | `{"status": "ok", "models": ["synthetic", "finetuned"], "auto_corners": false, "engine": false}` (`auto_corners` is true when the corner model is loaded, `engine` when Stockfish is found; the page hides "Run Stockfish" without one) |
 | `POST /predict` | Upload a JPEG or PNG (up to 5 MB). Query: `model` is `synthetic` or `finetuned` (default `finetuned`); `conf` is 0 to 1 (default 0.25) |
-| `POST /position` | Same upload plus an optional `corners` form field (JSON, pixels of the uploaded image: `bottom_left` is a1, `bottom_right` h1, `top_right` h8, `top_left` a8). Without it the server finds the board itself, or answers 503 if it has no corner model and 422 if it finds no board. Query: `model`, `conf` (default 0.5), `anchor_y` (default 0.9). Returns the squares, the FEN piece-placement field and the corners used (`corners_source` is `given` or `auto`) |
+| `POST /position` | Same upload plus an optional `corners` form field (JSON, pixels of the uploaded image: `bottom_left` is a1, `bottom_right` h1, `top_right` h8, `top_left` a8). Without it the server finds the board itself, or answers 503 if it has no corner model and 422 if it finds no board. Query: `model`, `conf` (default 0.5), `anchor_y` (default 0.9). Returns the squares, the FEN piece-placement field and the corners used (`corners_source` is `given` or `auto`). For `auto` corners it also returns `alignment_error` and `low_confidence` (see docs/POSITION.md) |
 | `POST /analyse` | JSON `{"fen": "...", "seconds": 1}`. Runs Stockfish and returns the evaluation (White's view), best move and main line. 503 if no engine is installed, 422 if the position is impossible |
 
 ```bash
@@ -229,7 +229,9 @@ amd64, so it must be built for that platform.
 - **Fine-tuning points from 100 photographs up are single runs.**
 - **Size and speed.** The 2.01 GB image makes cold starts slow, and inference is
   CPU-only.
-- **Uploads are capped at 5 MB**, which some raw phone photos exceed.
+- **Uploads are capped at 5 MB and 40 million pixels**, and the 5 MB cap is more than some raw
+  phone photos fit. Model calls take turns (one at a time) and `/analyse` allows two engine runs at
+  once, so a busy server queues or answers 429. There is no per-visitor rate limit.
 
 ## Credits and licences
 

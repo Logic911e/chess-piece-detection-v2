@@ -214,6 +214,26 @@ the nano model. The augmentation run changed several settings at once (`degrees=
 It does show that geometric augmentation can damage a corner model here, which makes it a
 candidate explanation for the mosaic result too, but that is still untested.
 
+### Telling the reader when to doubt a reading
+
+With automatic corners the service also returns `alignment_error`: the average distance, in
+squares, from each piece's base to the middle of its square (capped at half a square). It uses no
+labels. As a detector of wrong positions it is weak (`scripts/eval_confidence.py`,
+`reports/confidence_eval.csv`, 66 wrong and 264 right photos on validation, 27 and 279 on test):
+
+| | Validation | Test |
+|---|---|---|
+| AUROC, wrong against right | 0.617 | 0.769 |
+| Photos flagged at 0.0456 | 20.0% | 17.6% |
+| Right among flagged | 68.2% | 70.4% |
+| Right among not flagged | 83.0% | 95.6% |
+
+The threshold (0.0456) is the value that flags the worst 20% of validation photos, so it was set
+on validation. `low_confidence` is true above it, and the page then asks the user to check the
+corners. The separation is clear on test and modest on validation. The signal cannot see a board
+that is placed well but named half a turn wrong, which was 41% of the validation failures, so it
+does not replace the "check that White is at the bottom" note.
+
 ### In the service
 
 `models/corners.pt` (not committed) switches this on. With it, `POST /position` without a

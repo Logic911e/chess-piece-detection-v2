@@ -328,3 +328,65 @@ def test_pages_are_served_by_the_api(client):
     redirect = client.get("/", follow_redirects=False)
     assert redirect.status_code in (301, 302, 307)
     assert redirect.headers["location"] == "/app/"
+
+
+def test_too_many_pixels_is_413(client, tiny_image, monkeypatch):
+    monkeypatch.setattr(app_module, "MAX_PIXELS", 1000)  # the image is 320 x 240
+    r = post(client, png_bytes(tiny_image))
+    assert r.status_code == 413
+    assert "pixels" in r.json()["detail"]
+
+
+def test_image_at_the_pixel_limit_is_accepted(client, tiny_image, monkeypatch):
+    monkeypatch.setattr(app_module, "MAX_PIXELS", 320 * 240)
+    assert post(client, png_bytes(tiny_image)).status_code == 200
+
+
+def test_analyse_refuses_when_every_engine_slot_is_taken(client, monkeypatch):
+    import threading
+
+    monkeypatch.setattr(app_module, "find_engine", lambda: "/fake/engine")
+    monkeypatch.setattr(app_module, "ENGINE_SLOTS", threading.BoundedSemaphore(1))
+    app_module.ENGINE_SLOTS.acquire()  # someone else is using the only slot
+    r = post_analyse(client, "4k3/8/8/8/8/8/8/4K2R w - - 0 1")
+    assert r.status_code == 429
+
+
+def test_analyse_frees_its_slot_after_a_failure(client, monkeypatch):
+    import threading
+
+    def boom(path, fen, seconds):
+        raise OSError("engine missing")
+
+    monkeypatch.setattr(app_module, "find_engine", lambda: "/fake/engine")
+    monkeypatch.setattr(app_module, "ENGINE_SLOTS", threading.BoundedSemaphore(1))
+    monkeypatch.setattr(app_module, "analyse", boom)
+    assert post_analyse(client, "4k3/8/8/8/8/8/8/4K2R w - - 0 1").status_code == 502
+    assert app_module.ENGINE_SLOTS.acquire(blocking=False)  # the slot came back
+
+
+def test_position_with_given_corners_has_no_confidence_fields(client, tiny_image):
+    body = post_position(client, png_bytes(tiny_image), conf=0.1).json()
+    assert body["alignment_error"] is None
+    assert body["low_confidence"] is None
+
+
+def test_position_with_found_corners_reports_alignment(auto_client, tiny_image):
+    r = auto_client.post(
+        "/position",
+        params={"conf": 0.1},
+        files={"file": ("x.png", png_bytes(tiny_image), "image/png")},
+    )
+    body = r.json()
+    assert 0.0 <= body["alignment_error"] <= 0.5
+    assert isinstance(body["low_confidence"], bool)
+
+
+def test_low_confidence_follows_the_threshold(auto_client, tiny_image, monkeypatch):
+    files = {"file": ("x.png", png_bytes(tiny_image), "image/png")}
+    monkeypatch.setattr(app_module, "LOW_CONFIDENCE_ALIGNMENT", -1.0)
+    assert auto_client.post("/position", params={"conf": 0.1}, files=files).json()["low_confidence"]
+    monkeypatch.setattr(app_module, "LOW_CONFIDENCE_ALIGNMENT", 1.0)
+    assert not auto_client.post("/position", params={"conf": 0.1}, files=files).json()[
+        "low_confidence"
+    ]

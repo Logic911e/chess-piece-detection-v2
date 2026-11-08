@@ -6,6 +6,7 @@ directories on import), so it can be tested and reused on its own.
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 
@@ -17,6 +18,11 @@ MODEL_FILES = {
     "finetuned": "finetuned.pt",
 }
 
+
+# Ultralytics says a YOLO object is not safe to call from several threads at once, and the API
+# runs requests in a thread pool, so model calls take turns. On the one CPU a container has,
+# parallel calls would mostly queue anyway.
+INFERENCE_LOCK = threading.Lock()
 
 # Optional: finds the four board corners so a photo can be read without hand-placed corners.
 CORNER_MODEL_FILE = "corners.pt"
@@ -52,7 +58,8 @@ def load_corner_model(models_dir: Path):
 def detect_board_corners(model, image: Image.Image) -> list[list[float]] | None:
     """Four corners of the most confident board, as [x, y] pixels of the image in screen
     order (top-left, top-right, bottom-right, bottom-left), or None if no board is found."""
-    result = model.predict(image, imgsz=640, device="cpu", verbose=False)[0]
+    with INFERENCE_LOCK:
+        result = model.predict(image, imgsz=640, device="cpu", verbose=False)[0]
     confidences = result.boxes.conf.tolist()
     if not confidences or result.keypoints is None:
         return None
@@ -67,7 +74,8 @@ def predict(models: dict, name: str, image: Image.Image, conf: float = 0.25) -> 
 
     model = models[name]
     start = time.perf_counter()
-    result = model.predict(image, conf=conf, device="cpu", verbose=False)[0]
+    with INFERENCE_LOCK:
+        result = model.predict(image, conf=conf, device="cpu", verbose=False)[0]
     elapsed_ms = (time.perf_counter() - start) * 1000
 
     detections = [

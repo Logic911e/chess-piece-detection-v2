@@ -51,6 +51,17 @@ class PositionResponse(BaseModel):
         "this is where the board was placed, so a client can show them for adjusting."
     )
     corners_source: Literal["given", "auto"]
+    alignment_error: float | None = Field(
+        default=None,
+        description="Only for automatic corners: the mean distance, in squares, from each piece "
+        "to the centre of its square. Lower means the grid sits better on the pieces.",
+    )
+    low_confidence: bool | None = Field(
+        default=None,
+        description="Only for automatic corners: true when alignment_error is high enough that "
+        "the reading is less reliable than most. A weak signal; it cannot see a board that is "
+        "placed well but turned half a revolution.",
+    )
     pieces: int = Field(description="Number of pieces placed on the board")
     warnings: list[str] = Field(
         default_factory=list,

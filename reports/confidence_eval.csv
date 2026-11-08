@@ -1,0 +1,11 @@
+weights,split,measure,value
+corners-n-nomosaic,val,AUROC (wrong vs right),0.6169
+corners-n-nomosaic,test,AUROC (wrong vs right),0.7685
+corners-n-nomosaic,val,threshold 0.0519 (flags top 10% on val),flagged 0.100; right among flagged 0.636; right among kept 0.818
+corners-n-nomosaic,test,threshold 0.0519 (flags top 10% on val),flagged 0.092; right among flagged 0.536; right among kept 0.950
+corners-n-nomosaic,val,threshold 0.0456 (flags top 20% on val),flagged 0.200; right among flagged 0.682; right among kept 0.830
+corners-n-nomosaic,test,threshold 0.0456 (flags top 20% on val),flagged 0.176; right among flagged 0.704; right among kept 0.956
+corners-n-nomosaic,val,threshold 0.0432 (flags top 30% on val),flagged 0.300; right among flagged 0.687; right among kept 0.848
+corners-n-nomosaic,test,threshold 0.0432 (flags top 30% on val),flagged 0.258; right among flagged 0.772; right among kept 0.960
+corners-n-nomosaic,val,threshold 0.0403 (flags top 40% on val),flagged 0.400; right among flagged 0.720; right among kept 0.854
+corners-n-nomosaic,test,threshold 0.0403 (flags top 40% on val),flagged 0.408; right among flagged 0.848; right among kept 0.956

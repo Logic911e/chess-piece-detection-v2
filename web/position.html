@@ -767,6 +767,7 @@ function showResult(data, pts, found = false) {
     data.warnings.forEach((w) => { const li = document.createElement("li"); li.textContent = w; list.append(li); });
     els.warnings.append(lead, list);
   }
+  if (data.low_confidence) notice("warn", "The pieces sit less neatly on this grid than usual, so this reading is less reliable. Check the corners against the board and drag any that are off.");
   if (data.pieces === 0) notice("warn", "No pieces were found inside the corners. Check that the corners sit on the board and try again.");
   goTo("position");
   flatten(pts);
