@@ -216,6 +216,45 @@ the nano model. The augmentation run changed several settings at once (`degrees=
 It does show that geometric augmentation can damage a corner model here. The matched
 mosaic comparison above points the same way, though neither result says why.
 
+### A board it has not seen: the corner finder does not transfer
+
+Everything above is ChessReD, where all the photos I looked at show the same printed white and
+dark brown mat on the same table. To see what happens elsewhere I photographed one cheap wooden
+box set with my phone in evening room light: tan and near-black squares, cream and olive-brown
+pieces. The 22 photos are 4 empty boards and 18 with pieces (two mid-game positions with 8 and 9
+photos, and the starting position with 1). None was used for training or
+tuning, none has been scored against a typed position yet, and the photos are not in the
+repository.
+
+| Check | Result |
+|---|---|
+| Corner finder (the mosaic-off nano model) at the service's setting | No board found in any of the 22 photos |
+| Same, confidence lowered to 0.01, or 1280 pixels, or photo padded to a square | Still none on 21 of 22; the exception (the darkest photo) was found only when padded to a square or at 1280 pixels, at about 0.65 to 0.73, and I did not check its corners |
+| Tight square crops of the empty-board photos, board sized 1.0 to 2.4 times the crop | 4 detections in 20 crops, only one at 0.44 or above; crop positions placed by eye |
+| ChessReD test photos recoloured: grayscale, hue shifted 120 degrees, 180 degrees | Corner error 4.88%, 4.33%, 22.38% (4.22% unchanged) |
+| Empty-board photos with the squares recoloured to near-white and brown | Board found in 2 of 4 at 0.46 or above (a crude brightness remap that also changed the table) |
+| Corner model trained with hue, saturation and channel-swap augmentation | See below |
+
+The piece detector (`finetuned.pt`, confidence 0.5) found 0 to 13 pieces per photo with pieces on
+the board, a median of about 5, where each photo shows well over 20. I have not measured how many
+of the found ones are right.
+
+The colour-augmentation run changed only colour (`hsv_h=0.5`, `hsv_s=0.9`, `bgr=0.5`, mosaic off,
+otherwise the same settings as the mosaic-off model). On ChessReD its test corner error was
+5.50% (4.22% before), and the 11-start whole-position rate was 76.97% on validation and 89.87%
+on test (80.00% and 91.18% before). On my photos it found the board in 2 of 22 at the service's
+setting, both empty boards, and in none of the 18 photos with pieces. I set the criteria before
+scoring: corner error close to 4.22%, clearly more boards found, and a better position score. It
+met none of them clearly, so the service keeps the earlier model.
+
+What I take from this: the corner finder learned the one ChessReD mat and room, and a colour
+change alone does not move it onto a different board. Neither piece style nor lighting explains the
+empty-board result, since those photos have no pieces. Why it fails (the rim and lid, the darker
+squares, the cluttered background, or just never having seen another board) is not established.
+The page's manual corner mode is the working path for other boards, and it was the mode used when
+I first tried the service on my phone. This is one board in one room, so it says how this setting
+behaves and nothing more general.
+
 ### Telling the reader when to doubt a reading
 
 With automatic corners the service also returns `alignment_error`: the average distance, in

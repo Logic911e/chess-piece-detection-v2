@@ -222,8 +222,9 @@ amd64, so it must be built for that platform.
   results differ between games (78 to 84% on four of the six, 94 to 95% on the other two). The
   method was tuned while both splits were visible, so treat all of these as the optimistic end.
   The page shows the corners for you to check. The corner model has only seen ChessReD's boards
-  and cameras, and photos from your own phone and board have not been measured. Position
-  accuracy falls quickly as the corners get less precise.
+  and cameras. On one cheap wooden board photographed with my own phone it found no board in
+  any of 22 photos (details in `docs/POSITION.md`), so for other boards use the page's manual
+  corner mode. Position accuracy falls quickly as the corners get less precise.
 - **Untested conditions.** Lighting, angle and chess sets outside ChessReD have
   not been tested.
 - **Fine-tuning points from 100 photographs up are single runs.**
