@@ -104,17 +104,19 @@ table. On the 306 test photographs:
 
 | Corner model | Mean corner error | Median of the worst corner | All corners within 3% | All corners within 6% |
 |---|---|---|---|---|
-| Trained with mosaic augmentation | 19.77% | 15.75% | 0.0% | 0.65% |
-| Trained without mosaic augmentation | 4.22% | 5.00% | 10.46% | 64.38% |
+| Mosaic on, patience 10 (stopped at epoch 20) | 19.77% | 15.75% | 0.0% | 0.65% |
+| Mosaic on, patience 40 (all 40 epochs) | 8.06% | 7.32% | 1.31% | 34.64% |
+| Mosaic off, patience 40 (all 40 epochs) | 4.22% | 5.00% | 10.46% | 64.38% |
 
-These two runs differ in more than mosaic. The first had mosaic on and early-stopping
-patience 10, and stopped at epoch 20 (best epoch 10), so it trained for about half as long; the
-second had mosaic off, patience 40 and ran the full 40 epochs (see `args.yaml` in each run
-folder). Both are single runs with seed 42. The size of the gap, and a 19.77% error that
-looks more like a broken run than a tuning effect, mean mosaic is a plausible cause but not an
-established one: the arm with mosaic on and patience 40 has not been run. The likely mechanism
-is that mosaic shrinks and crops the board and can push corners out of the image, which is also
-untested. The second model is used below.
+The first run stopped at epoch 20 (best epoch 10), so it trained for about half as long and
+differs from the others in more than mosaic. The last two runs have the same settings (40
+epochs, patience 40, batch 16, image size 640, seed 42) and differ only in mosaic, so they are
+the fair comparison: mosaic on gave 8.06% against 4.22% with it off. Each is a single run with
+one seed, so the size of the gap is not established, only its direction. The mosaic-on model
+also scored lower on whole positions with the same method as the table below (11 starts, prior
+3): 65.15% on validation and 81.70% on test, against 80.00% and 91.18% for the mosaic-off
+model. The mechanism is untested. One candidate is that mosaic shrinks and crops the board and
+can push corners out of the image. The mosaic-off model is used below.
 
 Whole-position accuracy with detected corners, same piece settings as before (anchor 0.9,
 conf 0.5). The refinement strength was chosen on val (candidates 1, 3, 10, 30 and 100; 3
@@ -211,8 +213,8 @@ The table's exact-position columns use one start (before the multi-start step). 
 augmentation model gets 45.76% on validation and 56.54% on test, against 80.00% and 91.18% for
 the nano model. The augmentation run changed several settings at once (`degrees=10`,
 `perspective=0.0005`, `hsv_v=0.5`, on top of mosaic off), so this does not say which one hurt.
-It does show that geometric augmentation can damage a corner model here, which makes it a
-candidate explanation for the mosaic result too, but that is still untested.
+It does show that geometric augmentation can damage a corner model here. The matched
+mosaic comparison above points the same way, though neither result says why.
 
 ### Telling the reader when to doubt a reading
 
