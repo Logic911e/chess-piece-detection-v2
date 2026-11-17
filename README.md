@@ -172,7 +172,6 @@ docs/MODEL_CARD.md    what the models are, how they were trained, how they fail
 docs/DEPLOY.md        Cloud Run commands, budget alert, teardown
 docs/POSITION.md      photo-to-position method and results
 docs/TRAINING.md      original course-project README: data download, training
-docs/PORTFOLIO_COPY.md  draft post and CV entry (not posted)
 RESULTS.md            experiment log with the source of every number
 reports/              result CSVs used by the docs
 src/*.py (others)     the original course-project training and evaluation code
