@@ -223,8 +223,8 @@ dark brown mat on the same table. To see what happens elsewhere I photographed o
 box set with my phone in evening room light: tan and near-black squares, cream and olive-brown
 pieces. The 22 photos are 4 empty boards and 18 with pieces (two mid-game positions with 8 and 9
 photos, and the starting position with 1). None was used for training or
-tuning, none has been scored against a typed position yet, and the photos are not in the
-repository.
+tuning, none of these 22 has been scored against a typed position (a second set of 11 has: see
+the next section), and the photos are not in the repository.
 
 | Check | Result |
 |---|---|
@@ -236,8 +236,8 @@ repository.
 | Corner model trained with hue, saturation and channel-swap augmentation | See below |
 
 The piece detector (`finetuned.pt`, confidence 0.5) found 0 to 13 pieces per photo with pieces on
-the board, a median of about 5, where each photo shows well over 20. I have not measured how many
-of the found ones are right.
+the board, a median of about 5, where each photo shows well over 20. The next section measures
+how many of the found pieces are right, on a second set of photos.
 
 The colour-augmentation run changed only colour (`hsv_h=0.5`, `hsv_s=0.9`, `bgr=0.5`, mosaic off,
 otherwise the same settings as the mosaic-off model). On ChessReD its test corner error was
@@ -254,6 +254,67 @@ squares, the cluttered background, or just never having seen another board) is n
 The page's manual corner mode is the working path for other boards, and it was the mode used when
 I first tried the service on my phone. This is one board in one room, so it says how this setting
 behaves and nothing more general.
+
+### The piece detector on the same board, against typed positions
+
+A second set of 11 photos of the same cheap box set, each of a different position taken from a
+Lichess game. I set each position up from its FEN and typed the FEN myself, so the answer key
+comes from neither the model nor me reading the photo. All 11 FENs pass python-chess validity
+checks and have 17 to 30 pieces. The photos reached me through WhatsApp, so they are 1148 by 2040
+pixels rather than the phone's full size. Six were taken from White's side and five from Black's.
+None was used for training or tuning, and they are not in the repository.
+
+**Automatic corners:** the corner finder found no board in any of the 11 photos, so the service
+would answer "mark the corners by hand" every time (0 of 11 exact).
+
+**Hand corners:** to test the piece detector without that failure, I placed the four corners of
+the playing area on each photo by eye, from gridded crops, before scoring anything, and did not
+change them afterwards. The camera side was known, so naming a1 was not tested. No refinement
+step was used. Everything else is the service's setting (`finetuned.pt`, anchor 0.9).
+
+| | Confidence 0.5 (the service) | Confidence 0.25 |
+|---|---|---|
+| Whole positions exactly right | 0 of 11 | 0 of 11 |
+| Pieces on the right square with the right type | 17 of 281 (6.0%) | 26 of 281 (9.3%) |
+| Pieces found with the wrong type | 13 | 26 |
+| Pieces not found | 251 | 229 |
+| Boxes on squares that are empty | 0 | 0 |
+| Squares right, counting empty squares | 440 of 704 | 449 of 704 |
+
+A board where nothing is found would get 423 of 704 squares right, so the square count says
+little here and the piece counts are the honest figures. At confidence 0.5 the pieces found
+correctly were mostly white rooks (8 of 20) and white kings (3 of 11); white pawns were 0 of 72
+and black pawns 3 of 73.
+
+To separate "not seen" from "seen but mislabelled" I lowered the confidence floor to 0.005 and
+asked whether any box has its base on each piece's square (diagnostic only, not a setting I
+would use):
+
+| Confidence at least | Pieces with a box on their square | Right colour | Right colour and type | Boxes on empty squares |
+|---|---|---|---|---|
+| 0.01 | 143 of 281 | 95 | 47 | 13 |
+| 0.05 | 102 | 69 | 38 | 2 |
+| 0.1 | 78 | 54 | 33 | 0 |
+| 0.25 | 52 | 40 | 26 | 0 |
+
+At 1280 pixels instead of 640 it was no better (122 boxed at 0.01, 31 with the right colour and
+type). So about half the pieces get no box even at a very low confidence, and of the boxes that
+land on a piece, about two thirds have the right colour and about one third the right colour and
+type.
+
+What I take from this: on this board the piece detector is the larger problem, and fixing the
+corners alone would not have helped, since about 90% of the pieces would still be missing from
+the FEN. The likely explanation is the training data (one set of pieces in one room), but I have
+not shown that. I also do not know why the colour is wrong a third of the time.
+
+Limits: one cheap set in one room, 11 positions, so this says how this setting behaves and
+nothing more general. Tall pieces at low camera angles hide the squares behind them, and a box
+can land on a neighbouring square, so "box on their square" may undercount a little. My corners
+are placed by eye, which can move a few of the 13 wrong-type cases between neighbouring squares
+but cannot explain pieces that were never found. The per-photo numbers are in
+`reports/own_board_eval.csv`. The scripts that produced them live outside the repository (they
+depend on photos that are not in it), so this is a record of one run, not something you can rerun
+from a clone.
 
 ### Telling the reader when to doubt a reading
 

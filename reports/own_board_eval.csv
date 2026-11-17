@@ -1,0 +1,12 @@
+photo,camera_side,pieces_on_board,auto_board_found,auto_exact,conf0.5_correct,conf0.5_wrong_type,conf0.5_missed,conf0.5_extra,conf0.5_squares_right_of_64,conf0.5_exact,conf0.25_correct,conf0.25_wrong_type,conf0.25_missed,conf0.25_extra,conf0.25_squares_right_of_64,conf0.25_exact,boxed_at_0.01,boxed_at_0.1,fen_placement
+p01,white,17,False,0,1,3,13,0,48,False,1,5,11,0,48,False,10,6,1r4k1/1p3pp1/pP5p/P1P3q1/4Q3/B6P/5PP1/6K1
+p02,black,26,False,0,0,0,26,0,38,False,1,0,25,0,39,False,5,3,r2qkb1r/pp1b1pp1/2n4p/1B1p4/3N2P1/4BP2/PPP4P/R2QK2R
+p03,black,30,False,0,0,0,30,0,34,False,0,0,30,0,34,False,6,1,r1bqk2r/pp1n1p1p/2n1p3/3pP1p1/3N1PPb/2N1BQ2/PPPK3P/R4B1R
+p04,black,29,False,0,1,0,28,0,36,False,1,0,28,0,36,False,7,1,rn1qkb1r/pp3ppp/2p2n2/5p2/2pP4/2N3P1/PP2PP1P/R1BQKB1R
+p05,black,20,False,0,0,0,20,0,44,False,0,0,20,0,44,False,3,0,2r1k2r/5pp1/p1nR4/1p2p2p/8/5P2/PPP3PP/1K3B1R
+p06,black,24,False,0,0,1,23,0,40,False,0,3,21,0,40,False,14,5,r2qr1k1/1pb2pp1/3p4/pP1Pp2p/2P5/5P2/P1RQ1BPP/5RK1
+p07,white,30,False,0,4,3,23,0,38,False,5,5,20,0,39,False,20,14,r1bq2k1/pp2n1b1/2pp1rpp/5p2/2PPpN1P/2N1P1P1/PP2BP2/R2QK2R
+p08,white,28,False,0,3,2,23,0,39,False,6,4,18,0,42,False,25,18,r1bq1rk1/1pp2ppp/2n5/pBb1p3/4P3/P1P2N2/1PQ2PPP/R1B2RK1
+p09,white,27,False,0,3,2,22,0,40,False,4,3,20,0,41,False,17,9,r1b2rk1/pp1nbppp/4p3/2p4q/2B3NP/1P2PQ2/PB1P1P2/R3K1R1
+p10,white,23,False,0,2,1,20,0,43,False,4,4,15,0,45,False,18,10,r2r2k1/p3ppbp/6p1/1Q3P2/1n1P4/2q2NPP/P4PB1/R4RK1
+p11,white,27,False,0,3,1,23,0,40,False,4,2,21,0,41,False,18,11,3r1rk1/p1nb2b1/qpp1p1pp/2p1P3/4NPQ1/2P3PP/P4BB1/R4RK1

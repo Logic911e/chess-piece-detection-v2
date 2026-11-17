@@ -222,10 +222,14 @@ amd64, so it must be built for that platform.
   method was tuned while both splits were visible, so treat all of these as the optimistic end.
   The page shows the corners for you to check. The corner model has only seen ChessReD's boards
   and cameras. On one cheap wooden board photographed with my own phone it found no board in
-  any of 22 photos (details in `docs/POSITION.md`), so for other boards use the page's manual
-  corner mode. Position accuracy falls quickly as the corners get less precise.
-- **Untested conditions.** Lighting, angle and chess sets outside ChessReD have
-  not been tested.
+  any of 22 photos, and on 11 more photos with typed positions it found none in any of them
+  either. Position accuracy falls quickly as the corners get less precise.
+- **Other chess sets are not read well.** With the corners placed by hand, the piece detector put
+  17 of the 281 pieces on that cheap set on the right square with the right type, and found no
+  box at all for about half of them (`docs/POSITION.md`). The page's manual corner mode does not
+  fix this. Expect poor results on sets that look different from ChessReD's.
+- **Untested conditions.** Lighting, angle and chess sets outside ChessReD have been tried on one
+  cheap set in one room, which is not enough to say more.
 - **Fine-tuning points from 100 photographs up are single runs.**
 - **Size and speed.** The 2.23 GB image makes cold starts slow, and inference is
   CPU-only.
